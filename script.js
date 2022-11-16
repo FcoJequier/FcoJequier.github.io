@@ -22,16 +22,16 @@ function efectoHabilidades(){
     if(distancia_skills >= 300){
         let habilidades = document.getElementsByClassName("progreso");
         habilidades[0].classList.add("htmlcss");
-        habilidades[1].classList.add("javascript");
-        habilidades[2].classList.add("bootstrap");
+        habilidades[1].classList.add("bootstrap");
+        habilidades[2].classList.add("javascript");
         habilidades[3].classList.add("react");
         habilidades[4].classList.add("mysql");
         habilidades[5].classList.add("español");
         habilidades[6].classList.add("ingles");
         habilidades[7].classList.add("responsable");
-        habilidades[8].classList.add("trabajoEquipo");
-        habilidades[9].classList.add("creatividad");
-        habilidades[10].classList.add("autodidacta");
+        habilidades[8].classList.add("autodidacta");
+        habilidades[9].classList.add("trabajoEquipo");
+        habilidades[10].classList.add("creatividad");
     }
 }
 
