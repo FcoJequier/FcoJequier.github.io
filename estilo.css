@@ -294,7 +294,7 @@ html{
 }
 @keyframes javascript {
     0%{width: 0%;}
-    100%{width: 65%;}
+    100%{width: 60%;}
 }
 
 .skills .skill .react{
@@ -303,7 +303,7 @@ html{
 }
 @keyframes react {
     0%{width: 0%;}
-    100%{width: 40%;}
+    100%{width: 45%;}
 }
 
 .skills .skill .mysql{
@@ -312,7 +312,7 @@ html{
 }
 @keyframes mysql {
     0%{width: 0%;}
-    100%{width: 75%;}
+    100%{width: 70%;}
 }
 
 .skills .skill .español{
@@ -366,7 +366,7 @@ html{
 }
 @keyframes creatividad {
     0%{width: 0%;}
-    100%{width: 70%;}
+    100%{width: 80%;}
 }
 
 /* SECCION CURRICULUM */
