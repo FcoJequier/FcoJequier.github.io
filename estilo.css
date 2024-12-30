@@ -270,22 +270,22 @@ html{
     font-size: 14px;
 }
 /* Estas clases se agregaran dinamicamente mediante javascript */
-.skills .skill .htmlcss{
+.skills .skill .angular{
     width: 0%;
-    animation: 2s htmlcss forwards;
+    animation: 2s angular forwards;
 }
-@keyframes htmlcss {
+@keyframes angular {
     0%{width: 0%;}
-    100%{width: 85%;}
+    100%{width: 95%;}
 }
 
-.skills .skill .bootstrap{
+.skills .skill .typescript{
     width: 0%;
-    animation: 2s bootstrap forwards;
+    animation: 2s typescript forwards;
 }
-@keyframes bootstrap {
+@keyframes typescript {
     0%{width: 0%;}
-    100%{width: 75%;}
+    100%{width: 95%;}
 }
 
 .skills .skill .javascript{
@@ -294,7 +294,79 @@ html{
 }
 @keyframes javascript {
     0%{width: 0%;}
-    100%{width: 75%;}
+    100%{width: 95%;}
+}
+
+.skills .skill .htmlcss{
+    width: 0%;
+    animation: 2s htmlcss forwards;
+}
+@keyframes htmlcss {
+    0%{width: 0%;}
+    100%{width: 95%;}
+}
+
+.skills .skill .frameworks{
+    width: 0%;
+    animation: 2s frameworks forwards;
+}
+@keyframes frameworks {
+    0%{width: 0%;}
+    100%{width: 95%;}
+}
+
+.skills .skill .git{
+    width: 0%;
+    animation: 2s git forwards;
+}
+@keyframes git {
+    0%{width: 0%;}
+    100%{width: 90%;}
+}
+
+.skills .skill .figma{
+    width: 0%;
+    animation: 2s figma forwards;
+}
+@keyframes figma {
+    0%{width: 0%;}
+    100%{width: 90%;}
+}
+
+.skills .skill .databases{
+    width: 0%;
+    animation: 2s databases forwards;
+}
+@keyframes databases {
+    0%{width: 0%;}
+    100%{width: 90%;}
+}
+
+.skills .skill .backend{
+    width: 0%;
+    animation: 2s backend forwards;
+}
+@keyframes backend {
+    0%{width: 0%;}
+    100%{width: 80%;}
+}
+
+.skills .skill .aws{
+    width: 0%;
+    animation: 2s aws forwards;
+}
+@keyframes aws {
+    0%{width: 0%;}
+    100%{width: 80%;}
+}
+
+.skills .skill .python{
+    width: 0%;
+    animation: 2s python forwards;
+}
+@keyframes python {
+    0%{width: 0%;}
+    100%{width: 80%;}
 }
 
 .skills .skill .react{
