@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
+      integrity="sha512-1sCRPdkRXhBV2PBLUdRb4tMg1w2YPf37qatUFeS7zlBy7jJI8Lf4VHwWfZZfpXtYSLy85pkm9GaYVYMfw5BC1A=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <title>Portfolio</title>
+    <link rel="stylesheet" href="estilo.css" />
+  </head>
+  <body>
+    <!-- HEADER MENU -->
+    <div class="contenedor-header">
+      <header>
+        <div class="logo">
+          <a href="#">Francisco</a>
+        </div>
+        <nav id="nav">
+          <ul>
+            <li><a href="#inicio" onclick="seleccionar()">HOME</a></li>
+            <li><a href="#sobremi" onclick="seleccionar()">ABOUT ME</a></li>
+            <li><a href="#skills" onclick="seleccionar()">SKILLS</a></li>
+            <li><a href="#curriculum" onclick="seleccionar()">RESUME</a></li>
+          </ul>
+        </nav>
+        <div class="nav-responsive" onclick="mostrarOcultarMenu()">
+          <i class="fa-solid fa-bars"></i>
+        </div>
+        <div class="language-switch">
+          <a href="index.html" class="lang-btn">ES</a>
+          <a href="index-en.html" class="lang-btn active">EN</a>
+        </div>
+      </header>
+    </div>
+
+    <!-- HOME SECTION -->
+    <section id="inicio" class="inicio">
+      <div class="contenido-banner">
+        <div class="contenedor-img">
+          <img src="img/hero.jpg" alt="" />
+        </div>
+        <h1>Francisco Jequier</h1>
+        <h2>
+          Computer Engineer | Frontend Developer | Angular | TypeScript |
+          JavaScript | UX/UI | HTML/CSS | Figma
+        </h2>
+        <div class="redes">
+          <a
+            href="https://www.linkedin.com/in/francisco-jequier-jequier-3716b6237/"
+            ><i class="fa-brands fa-linkedin-in"></i
+          ></a>
+          <a href="https://github.com/FcoJequier"
+            ><i class="fa-brands fa-github"></i
+          ></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABOUT ME SECTION -->
+    <section id="sobremi" class="sobremi">
+      <div class="contenido-seccion">
+        <h2>About Me</h2>
+        <p>
+          <span>Hello, I'm Francisco Jequier.</span> Frontend Developer with over
+          2 years of experience creating efficient, attractive, and optimized user
+          interfaces for modern web applications. Expert in technologies such as
+          Angular, TypeScript, JavaScript, HTML, CSS, and design tools like Figma.
+        </p>
+
+        <p>
+          My focus is on delivering exceptional user experiences through
+          well-designed frontend solutions, from implementing interactive
+          components to performance optimization. Additionally, I have experience
+          working with REST APIs and collaborating in agile teams to integrate
+          backend functionalities using Node.js and NestJS.
+        </p>
+
+        <p>
+          Passionate about user-centered design and frontend development best
+          practices, I am committed to continuous improvement, exploring new tools
+          and methodologies to create products that make a difference. My B2
+          English level allows me to effectively participate in international teams
+          and stay updated with the latest industry documentation.
+        </p>
+
+        <div class="fila">
+          <!-- personal details -->
+          <div class="col">
+            <h3>Personal Details</h3>
+            <ul>
+              <li>
+                <strong>Phone</strong>
+                +56933793962
+              </li>
+              <li>
+                <strong>Email</strong>
+                francisco.jequier93@gmail.com
+              </li>
+              <li>
+                <strong>Website</strong>
+                <a href="https://fcojequier.github.io/">fcojequier.github.io</a>
+              </li>
+              <li>
+                <strong>Country</strong>
+                Chile
+              </li>
+            </ul>
+          </div>
+        </div>
+        <button
+          onclick="window.location.href='https://drive.google.com/file/d/1FhnO9pTKsjH-F-ax_-EzN80FTjNi-weZ/view?usp=sharing';"
+        >
+          Open CV <i class="fa-solid fa-download"></i>
+          <span class="overlay"></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- SKILLS SECTION -->
+    <section class="skills" id="skills">
+      <div class="contenido-seccion">
+        <h2>Skills</h2>
+        <div class="fila">
+          <!-- Technical Skills -->
+          <div class="col">
+            <h3>Professional</h3>
+            <div class="skill">
+              <span>Angular</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>100%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>TypeScript</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>100%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>JavaScript</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>100%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>HTML/CSS</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>100%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>Bootstrap/Angular Material/PrimeNG</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>100%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>Git/Github</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>90%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>Figma</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>90%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>MySQL/MongoDB</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>90%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>Node.js/NestJS</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>80%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>AWS</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>80%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>Python</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>80%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Languages -->
+          <div class="col">
+            <h3>Languages</h3>
+            <div class="skill">
+              <span>Spanish</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>100%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>English</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>75%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Personal Skills -->
+          <div class="col">
+            <h3>Personal</h3>
+            <div class="skill">
+              <span>Responsible</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>90%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>Creativity</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>80%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>Teamwork</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>80%</span>
+                </div>
+              </div>
+            </div>
+            <div class="skill">
+              <span>Self-taught</span>
+              <div class="barra-skill">
+                <div class="progreso">
+                  <span>80%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESUME SECTION -->
+    <section id="curriculum" class="curriculum">
+      <div class="contenido-seccion">
+        <h2>Resume</h2>
+        <div class="fila">
+          <div class="col izquierda">
+            <h3>Education</h3>
+            <div class="item izq">
+              <h4>Computer Engineering</h4>
+              <span class="casa">Universidad Tecnológica de Chile INACAP</span>
+              <span class="fecha">2014 - 2022</span>
+              <p>Graduated 2022</p>
+              <div class="conectori">
+                <div class="circuloi"></div>
+              </div>
+            </div>
+            <div class="item izq">
+              <h4>Civil Telematics Engineering</h4>
+              <span class="casa">Universidad de La Frontera</span>
+              <span class="fecha">2011 - 2013</span>
+              <p>Not completed</p>
+              <div class="conectori">
+                <div class="circuloi"></div>
+              </div>
+            </div>
+            <div class="item izq">
+              <h4>High School</h4>
+              <span class="casa">Greenhouse School</span>
+              <span class="fecha">1998 - 2011</span>
+              <p>Graduated 2011</p>
+              <div class="conectori">
+                <div class="circuloi"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col derecha">
+            <h3>Work Experience</h3>
+            <div class="item der">
+              <h4>Front-End Developer</h4>
+              <span class="casa">Flink Chile</span>
+              <span class="fecha">November 2022 - November 2024</span>
+              <p>
+                Development of web applications using Angular, TypeScript, HTML,
+                CSS, and JavaScript.
+              </p>
+              <br />
+              <p>
+                Collaboration with the backend team using Node.js, NestJS, and AWS
+                services, strengthening my Full Stack skills.
+              </p>
+              <br />
+              <p>
+                Implementation of user interfaces with PrimeNG, Angular Material,
+                and Bootstrap, optimizing user experience.
+              </p>
+              <br />
+              <p>
+                Participation in the creation of the products area, designing
+                internal processes with UML and BPMN diagrams.
+              </p>
+              <br />
+              <p>
+                Creation of mockups and prototypes with Figma to improve design
+                communication.
+              </p>
+              <br />
+              <p>
+                Maintenance and improvement of authentication and authorization
+                functionalities with AWS Cognito and JWT.
+              </p>
+              <br />
+              <p>
+                Management of relational and NoSQL databases, expanding my data
+                handling experience.
+              </p>
+              <br />
+              <p>
+                Application of agile methodologies and use of version control tools
+                (Git/GitHub) for effective team collaboration.
+              </p>
+              <br />
+              <p>
+                Provision of active technical support, including bug identification
+                and resolution, as well as implementation of hotfixes to maintain
+                application stability and efficiency.
+              </p>
+              <div class="conectord">
+                <div class="circulod"></div>
+              </div>
+            </div>
+            <div class="item der">
+              <h4>Front End Web Developer</h4>
+              <span class="casa">DevLEF SPA</span>
+              <span class="fecha">2022 - 2022</span>
+              <p>
+                Development of web applications using HTML, CSS, JavaScript, PHP,
+                and Laravel
+              </p>
+              <br />
+              <p>
+                Leadership of the intern team in the Front-End area
+              </p>
+              <div class="conectord">
+                <div class="circulod"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- footer -->
+    <footer>
+      <a href="#inicio" class="arriba">
+        <i class="fa-solid fa-angles-up"></i>
+      </a>
+      <div class="redes">
+        <a href="#"><i class="fa-brands fa-linkedin-in"></i></a>
+        <a href="#"><i class="fa-brands fa-github"></i></a>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html> 

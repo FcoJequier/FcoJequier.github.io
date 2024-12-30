@@ -55,6 +55,32 @@ html{
     cursor: pointer;
     display: none;
 }
+.language-switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 20px;
+}
+
+.lang-btn {
+    color: #fff;
+    text-decoration: none;
+    padding: 5px 10px;
+    border: 1px solid #1CB698;
+    border-radius: 5px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.lang-btn:hover {
+    background-color: #1CB698;
+    color: #fff;
+}
+
+.lang-btn.active {
+    background-color: #1CB698;
+    color: #fff;
+}
 /* SECCION I N I C I O */
 .inicio{
     background: linear-gradient(to top, rgba(30,35,38,.8), rgba(30,35,38,1)),
@@ -748,6 +774,11 @@ footer .arriba{
     nav.responsive ul li{
         border-bottom: 1px solid #fff;
         padding: 10px 0;
+    }
+    .language-switch {
+        position: absolute;
+        right: 60px;
+        top: 15px;
     }
 }
 @media screen and (max-width:700px){
