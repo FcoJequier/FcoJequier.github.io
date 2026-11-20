@@ -1,0 +1,28 @@
+/* Shared by the four prototypes: palette "Papel y tinta", reset and the switcher. */
+:root { --paper: #f3efe6; --surface: #e4dece; --ink: #141414; --red: #ff3b1f; --blue: #1f3bff; --mono: "Martian Mono Variable", ui-monospace, monospace; }
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+h1, h2, h3, p, ol, ul, figure, blockquote { margin: 0; padding: 0; }
+ol, ul { list-style: none; }
+a { color: inherit; }
+::selection { background: var(--red); color: var(--ink); }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+
+.pn { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 999; display: flex; gap: 4px; padding: 5px; background: var(--ink); border-radius: 999px; font: 500 12px/1 var(--mono); box-shadow: 0 6px 24px rgb(0 0 0 / .25); }
+.pn a { color: var(--paper); text-decoration: none; padding: 9px 13px; border-radius: 999px; white-space: nowrap; }
+.pn a:hover { background: #333; }
+.pn a[aria-current] { background: var(--red); color: var(--ink); }
+@media (max-width: 640px) { .pn a span { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Moving between the site and its other versions: the new page opens as a circle from the click. */
+@view-transition { navigation: auto; }
+::view-transition-image-pair(root) { isolation: auto; }
+::view-transition-old(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) { mix-blend-mode: normal; animation: vt-open .8s cubic-bezier(.7, 0, .15, 1); }
+@keyframes vt-open { from { clip-path: circle(0 at var(--vx, 50%) var(--vy, 50%)); } to { clip-path: circle(150vmax at var(--vx, 50%) var(--vy, 50%)); } }
+@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }

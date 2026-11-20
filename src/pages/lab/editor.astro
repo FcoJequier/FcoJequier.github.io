@@ -1,0 +1,602 @@
+---
+// Lab version "Editor": the portfolio as a code editor, a fictional fork of VS Code. Each
+// section is a file. Real features: command palette, search, outline, minimap, an assistant
+// panel, an inline suggestion, a terminal that takes commands, career as git history, stack as
+// extensions, notifications and a dark theme. Behaviour lives in src/scripts/editor.ts.
+import Proto from "../../components/Proto.astro";
+import "@fontsource-variable/hanken-grotesk";
+import { content, links, agentIds } from "../../content";
+
+const t = content.es;
+const c = t.chat;
+
+type Tok = { cls: string; text: string; href?: string };
+type Lang = "md" | "yaml" | "json" | "ts";
+
+// Minimal per-language highlighter: first matching rule wins at each position.
+const RULES: Record<Lang, [RegExp, string][]> = {
+  md: [[/^#{1,6} .*/y, "h"], [/^> .*/y, "q"], [/^\s*(\d+\.|-) /y, "p"], [/\*\*[^*]+\*\*/y, "b"], [/\[[^\]]+\]\([^)]+\)/y, "a"], [/`[^`]+`/y, "s"]],
+  yaml: [[/#.*/y, "c"], [/^\s*- /y, "p"], [/[\w-]+(?=:)/y, "f"], [/"[^"]*"/y, "s"], [/:/y, "p"]],
+  json: [[/"[^"]*"(?=\s*:)/y, "f"], [/"[^"]*"/y, "s"], [/[{}\[\],:]/y, "p"]],
+  ts: [[/\/\/.*/y, "c"], [/\b(?:export|const|as)\b/y, "k"], [/"[^"]*"/y, "s"], [/\w+(?=:)/y, "f"], [/[{}(),;:=]/y, "p"]],
+};
+const hrefOf = (s: string) => {
+  const v = s.replace(/"/g, "");
+  if (v.includes("@")) return `mailto:${v}`;
+  if (/^(linkedin|github)\.com/.test(v)) return `https://${v}`;
+  return undefined;
+};
+const tokenize = (lang: Lang, line: string): Tok[] => {
+  const out: Tok[] = [];
+  let i = 0, plain = "";
+  const flush = () => { if (plain) out.push({ cls: "", text: plain }); plain = ""; };
+  while (i < line.length) {
+    let hit = false;
+    for (const [re, cls] of RULES[lang]) {
+      re.lastIndex = i;
+      const m = re.exec(line);
+      if (!m || (re.source.startsWith("^") && i > 0)) continue;
+      flush();
+      if (cls === "a") {
+        const [, label, href] = /\[([^\]]+)\]\(([^)]+)\)/.exec(m[0])!;
+        out.push({ cls: "a", text: label, href });
+      } else {
+        out.push({ cls, text: m[0], href: cls === "s" ? hrefOf(m[0]) : undefined });
+      }
+      i += m[0].length;
+      hit = true;
+      break;
+    }
+    if (!hit) plain += line[i++];
+  }
+  flush();
+  return out;
+};
+
+const q = (s: string) => `"${s}"`;
+type File = { id: string; name: string; lang: Lang; dir?: string; hidden?: boolean; ghost?: string; src: string[] };
+const shortcuts: [string, string][] = [
+  ["Ctrl+Shift+P", "Paleta de comandos"], ["Ctrl+P", "Abrir archivo por nombre"], ["Ctrl+G", "Ir a línea"],
+  ["Ctrl+B", "Mostrar u ocultar la barra lateral"], ["Ctrl+J", "Mostrar u ocultar el panel"], ["Ctrl+I", "Mostrar u ocultar el asistente"],
+  ["Ctrl+Shift+E", "Explorador"], ["Ctrl+Shift+F", "Buscar en los archivos"], ["Ctrl+Shift+G", "Historial (control de código)"],
+  ["Ctrl+Shift+X", "Extensiones"], ["Tab", "Aceptar la sugerencia del asistente"], ["Esc", "Cerrar paleta, sugerencia o panel flotante"],
+];
+const fileList: File[] = [
+  { id: "readme", name: "README.md", lang: "md", ghost: "- lab/versiones.md — otras versiones de este sitio", src: [
+    `# ${t.hero.lines.join(" ")}`,
+    "",
+    `**Francisco Jequier** — ${t.hero.kicker}`,
+    `${t.footer}`,
+    "",
+    t.hero.lead,
+    "",
+    "## Archivos",
+    "- metodo.md — cómo trabajo",
+    "- agentes.yaml — los cinco roles",
+    "- experiencia.json — dónde he trabajado",
+    "- contacto.ts — cómo escribirme",
+  ] },
+  { id: "metodo", name: "metodo.md", lang: "md", src: [
+    `# ${t.method.title}`,
+    "",
+    ...t.method.steps.map(([verb, text], i) => `${i + 1}. **${verb}** — ${text}`),
+    "",
+    `> ${t.rule.tag}: ${t.rule.a} ${t.rule.hl}, ${t.rule.b}`,
+  ] },
+  { id: "agentes", name: "agentes.yaml", lang: "yaml", ghost: `decide: ${q("una persona")}  # nada se integra sin revisión`, src: [
+    `# ${t.agents.title}`,
+    `orquesta: ${q("Francisco Jequier")}`,
+    "agentes:",
+    ...t.agents.list.flatMap(([name, text], i) => [`  - id: ${agentIds[i]}`, `    rol: ${q(name)}`, `    hace: ${q(text)}`]),
+  ] },
+  { id: "experiencia", name: "experiencia.json", lang: "json", src: [
+    "[",
+    ...t.exp.items.flatMap(([dates, role, company, text], i, all) => [
+      "  {",
+      `    "periodo": ${q(dates)},`,
+      `    "rol": ${q(role)},`,
+      `    "empresa": ${q(company)},`,
+      `    "resumen": ${q(text)}`,
+      i < all.length - 1 ? "  }," : "  }",
+    ]),
+    "]",
+  ] },
+  { id: "contacto", name: "contacto.ts", lang: "ts", src: [
+    `// ${t.contact.text}`,
+    "export const contacto = {",
+    `  correo: ${q(links.email)},`,
+    `  linkedin: ${q("linkedin.com/in/francisco-jequier")},`,
+    `  github: ${q("github.com/FcoJequier")},`,
+    "} as const;",
+  ] },
+  { id: "versiones", name: "versiones.md", lang: "md", dir: "lab", src: [
+    `# ${t.lab.title}`,
+    "",
+    "- [Chat](/) — la versión principal",
+    ...c.versionList.filter(([href]) => href !== "/lab/editor/").map(([href, name, text]) => `- [${name}](${href}) — ${text}`),
+    `- [Código de este sitio](${links.repo})`,
+    "",
+    `> ${c.labNext}`,
+  ] },
+  { id: "atajos", name: "atajos.md", lang: "md", hidden: true, src: [
+    "# Atajos de teclado",
+    "",
+    ...shortcuts.map(([k, v]) => `- \`${k}\` — ${v}`),
+    "",
+    "> En la terminal: escribe `help` para ver los comandos.",
+  ] },
+];
+const files = fileList.map((f) => ({ ...f, lines: f.src.map((l) => tokenize(f.lang, l)), ghostToks: f.ghost ? tokenize(f.lang, f.ghost) : null }));
+
+// Minimap: one bar per line, coloured by its first highlighted token.
+const miniBar = (raw: string, toks: Tok[]) => {
+  const indent = raw.length - raw.trimStart().length;
+  return { left: Math.min(indent, 20) * 1.1, width: Math.min(raw.trim().length, 90) * 1.1, cls: toks.find((tk) => tk.cls)?.cls ?? "" };
+};
+
+const badge: Record<Lang, string> = { md: "M↓", yaml: "!", json: "{}", ts: "TS" };
+const langName: Record<Lang, string> = { md: "Markdown", yaml: "YAML", json: "JSON", ts: "TypeScript" };
+const menu = ["Archivo", "Editar", "Selección", "Ver", "Ir", "Terminal", "Ayuda"];
+const extensions = t.stack.groups.flatMap(([group, items]) => items.map((name) => [name, group] as const));
+
+// Assistant answers: short text + the file that holds the detail.
+const answers = {
+  quien: { text: `Francisco Jequier ${c.who} ${t.hero.lead}`, file: "readme" },
+  metodo: { text: `${t.method.title} ${t.method.steps.map(([v]) => v).join(", ")}. ${t.rule.a} ${t.rule.hl}.`, file: "metodo" },
+  agentes: { text: `${t.agents.title} ${t.agents.list.map(([n]) => n).join(", ")}.`, file: "agentes" },
+  experiencia: { text: `${t.exp.title} Hoy: ${t.exp.items[0][1]} en ${t.exp.items[0][2]}.`, file: "experiencia" },
+  lab: { text: `${t.lab.title} ${c.labMore}`, file: "versiones" },
+  contacto: { text: t.contact.text, file: "contacto" },
+  nose: { text: c.unknown, file: "" },
+};
+const data = {
+  files: files.map((f) => ({ id: f.id, name: f.name, path: f.dir ? `${f.dir}/${f.name}` : f.name, lang: f.lang, hidden: !!f.hidden, lines: f.src })),
+  answers,
+  topics: c.topics.map(([id, short]) => [id, short]),
+  log: t.log,
+  links,
+  versions: [["chat", "/"], ...c.versionList.map(([href, name]) => [name.toLowerCase(), href])],
+  who: `Francisco Jequier — ${t.hero.kicker}`,
+  exp: t.exp.items.map(([dates, role, company]) => [dates, role, company]),
+};
+---
+<Proto name="Editor" cls="p4">
+  <script is:inline>try{if(localStorage.getItem("ed-theme")!=="light")document.documentElement.dataset.theme="dark"}catch{}</script>
+  <div class="app">
+    <header class="titlebar">
+      <span class="logo" aria-hidden="true"></span>
+      <a class="back" href="/">← Chat</a>
+      <span class="menu" aria-hidden="true">{menu.map((m) => <span>{m}</span>)}</span>
+      <button type="button" class="command" data-cmd="palette" aria-label="Abrir la paleta de comandos (Ctrl+Shift+P)">
+        <span>⌕ francisco-jequier</span><kbd>Ctrl+Shift+P</kbd>
+      </button>
+      <button type="button" class="theme-btn" data-cmd="theme" data-theme-label aria-label="Cambiar tema" title="Cambiar entre tema claro y oscuro" aria-pressed="true">☀ Claro</button>
+      <span class="layout">
+        <button type="button" data-cmd="sidebar" aria-label="Barra lateral (Ctrl+B)" title="Barra lateral (Ctrl+B)"><svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="1" /><path d="M6 2.5v11" /></svg></button>
+        <button type="button" data-cmd="panel" aria-label="Panel (Ctrl+J)" title="Panel (Ctrl+J)"><svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="1" /><path d="M1.5 9.5h13" /></svg></button>
+        <button type="button" data-cmd="assist" aria-label="Asistente (Ctrl+I)" title="Asistente (Ctrl+I)"><svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="1" /><path d="M10 2.5v11" /></svg></button>
+      </span>
+      <span class="win" aria-hidden="true"><i>—</i><i>▢</i><i>✕</i></span>
+    </header>
+
+    <nav class="activity" aria-label="Vistas">
+      <button type="button" data-view="explorer" title="Explorador (Ctrl+Shift+E)" aria-label="Explorador"><svg viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5z M14 3v5h5" /></svg></button>
+      <button type="button" data-view="search" title="Buscar (Ctrl+Shift+F)" aria-label="Buscar"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" /><path d="M15 15l5 5" /></svg></button>
+      <button type="button" data-view="scm" title="Control de código (Ctrl+Shift+G)" aria-label="Control de código"><svg viewBox="0 0 24 24"><circle cx="6" cy="5" r="2" /><circle cx="6" cy="19" r="2" /><circle cx="18" cy="8" r="2" /><path d="M6 7v10M18 10c0 5-12 2-12 7" /></svg><em>{t.exp.items.length}</em></button>
+      <button type="button" data-view="ext" title="Extensiones (Ctrl+Shift+X)" aria-label="Extensiones"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="8" height="8" /><rect x="11" y="11" width="8" height="8" /><rect x="11" y="3" width="8" height="8" transform="rotate(12 15 7)" /></svg></button>
+      <button type="button" data-view="agents" title="Agentes" aria-label="Agentes"><svg viewBox="0 0 24 24"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" /></svg><em class="dot" hidden></em></button>
+      <span class="grow"></span>
+      <button type="button" data-cmd="theme" title="Tema claro u oscuro" aria-label="Cambiar tema"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 0 1 0 16z" class="fill" /></svg></button>
+    </nav>
+
+    <aside class="side" aria-label="Barra lateral">
+      <section data-view-pane="explorer">
+        <p class="head">Explorador</p>
+        <p class="root">▾ francisco-jequier</p>
+        <ul class="tree">
+          {files.filter((f) => !f.hidden).map((f) => (
+            <li class:list={{ nested: f.dir }}>
+              {f.dir && <span class="dir">▾ {f.dir}</span>}
+              <button type="button" data-open={f.id}><b class={`b-${f.lang}`}>{badge[f.lang]}</b>{f.name}</button>
+            </li>
+          ))}
+        </ul>
+        <p class="head sub">Esquema</p>
+        <ul class="outline" data-outline></ul>
+      </section>
+
+      <section data-view-pane="search" hidden>
+        <p class="head">Buscar</p>
+        <input class="field" type="search" data-search placeholder="Buscar en los archivos" aria-label="Buscar en los archivos" />
+        <p class="hint" data-search-count>Escribe al menos 2 letras. Prueba con «agentes» o «Angular».</p>
+        <ul class="results" data-results></ul>
+      </section>
+
+      <section data-view-pane="scm" hidden>
+        <p class="head">Control de código</p>
+        <form class="commit" data-commit>
+          <textarea class="field" name="msg" rows="3" placeholder="Escríbeme un mensaje (se abrirá tu correo)" aria-label="Mensaje para Francisco"></textarea>
+          <button type="submit" class="primary">✓ Enviar por correo</button>
+        </form>
+        <p class="head sub">Historial · main</p>
+        <ol class="graph">
+          {t.exp.items.map(([dates, role, company], i) => (
+            <li>
+              <button type="button" data-commit-at={i}>
+                <i class:list={{ head: i === 0 }}></i>
+                <span><b>{role}</b> @ {company}</span>
+                <time>{dates}</time>
+                {i === 0 && <em>HEAD → main</em>}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section data-view-pane="ext" hidden>
+        <p class="head">Extensiones</p>
+        <input class="field" type="search" data-ext-filter placeholder="Filtrar extensiones instaladas" aria-label="Filtrar extensiones" />
+        <p class="head sub">Instaladas · {extensions.length}</p>
+        <ul class="exts">
+          {extensions.map(([name, group]) => (
+            <li data-ext={name.toLowerCase()}>
+              <span class="tile" aria-hidden="true">{name.replace(/[^A-Za-z]/g, "").slice(0, 2)}</span>
+              <span><b>{name}</b><small>{group}</small></span>
+              <em>instalada</em>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section data-view-pane="agents" hidden>
+        <p class="head">Agentes</p>
+        <button type="button" class="primary" data-cmd="run">▶ Ejecutar simulación</button>
+        <div class="progress" aria-hidden="true"><i data-progress></i></div>
+        <ul class="agent-list">
+          {t.agents.list.map(([name, text], i) => (
+            <li data-agent={agentIds[i]}><i></i><code>{agentIds[i]}</code><span><b>{name}</b><small>{text}</small></span></li>
+          ))}
+          <li data-agent="humano" class="me"><i></i><code>yo</code><span><b>Revisión humana</b><small>Revisa y decide qué se integra.</small></span></li>
+        </ul>
+        <p class="hint">{t.hero.simNote}</p>
+      </section>
+    </aside>
+
+    <main class="editor">
+      <div class="tabs" role="tablist" aria-label="Archivos abiertos">
+        {files.map((f) => (
+          <div class="tab" data-tab={f.id} hidden={f.hidden}>
+            <button type="button" role="tab" data-open={f.id}><b class={`b-${f.lang}`}>{badge[f.lang]}</b>{f.name}</button>
+            <button type="button" class="x" data-close={f.id} aria-label={`Cerrar ${f.name}`}>✕</button>
+          </div>
+        ))}
+      </div>
+      <p class="crumbs">francisco-jequier › <span data-crumb>README.md</span></p>
+      <div class="code" data-code>
+        {files.map((f) => (
+          <section class="pane" data-pane={f.id} data-lang={langName[f.lang]} hidden>
+            <div class="lines">
+              {f.lines.map((toks, l) => (
+                <div class="ln" style={`--l:${Math.min(l, 24)}`}><code>{toks.map((tk) =>
+                  tk.href ? <a class={tk.cls} href={tk.href} rel={tk.href.startsWith("http") ? "noopener" : undefined}>{tk.text}</a>
+                  : tk.cls ? <span class={tk.cls}>{tk.text}</span> : tk.text
+                )}{toks.length === 0 && " "}</code></div>
+              ))}
+              {f.ghostToks && (
+                <div class="ln ghost" data-ghost hidden><code>{f.ghostToks.map((tk) => tk.cls ? <span class={tk.cls}>{tk.text}</span> : tk.text)}<kbd>Tab ⇥ aceptar · Esc descartar</kbd></code></div>
+              )}
+            </div>
+            <div class="mini" aria-hidden="true">
+              {f.src.map((raw, l) => { const b = miniBar(raw, f.lines[l]); return <i class={b.cls && `m-${b.cls}`} style={`margin-left:${b.left}px;width:${b.width}px`}></i>; })}
+              <span class="mini-view" data-mini-view></span>
+            </div>
+          </section>
+        ))}
+        <section class="empty" data-pane="empty" hidden>
+          <span class="logo big" aria-hidden="true"></span>
+          <p>Abre un archivo desde el explorador o con <kbd>Ctrl+P</kbd>.</p>
+        </section>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head" role="tablist" aria-label="Panel">
+          <button type="button" role="tab" data-panel-tab="terminal" class="on">Terminal</button>
+          <button type="button" role="tab" data-panel-tab="problems">Problemas</button>
+          <button type="button" role="tab" data-panel-tab="output">Salida</button>
+          <em>{t.hero.simNote}</em>
+          <button type="button" class="x" data-cmd="panel" aria-label="Cerrar panel">✕</button>
+        </div>
+        <div class="panel-body" data-panel-view="terminal">
+          <ol class="out" data-out aria-live="polite"></ol>
+          <form class="prompt" data-prompt>
+            <label><b>francisco@portfolio</b> ~ $</label>
+            <input name="cmd" autocomplete="off" spellcheck="false" aria-label="Comando de terminal" placeholder="escribe help" />
+          </form>
+        </div>
+        <div class="panel-body note" data-panel-view="problems" hidden>No se han detectado problemas en el área de trabajo.</div>
+        <div class="panel-body note" data-panel-view="output" hidden>
+          <p>[astro] sitio estático: sin servidor ni base de datos</p>
+          <p>[a11y] respeta la preferencia «reducir movimiento» del sistema</p>
+          <p>[privacidad] sin analítica ni cookies: este sitio no registra visitas</p>
+        </div>
+      </div>
+    </main>
+
+    <aside class="assist" aria-label="Asistente">
+      <p class="head">Asistente <em>respuestas predefinidas</em><button type="button" class="x" data-cmd="assist" aria-label="Cerrar asistente">✕</button></p>
+      <div class="thread" data-thread aria-live="polite">
+        <div class="bubble bot">Hola. Pregúntame por Francisco y te abro el archivo donde está el detalle.</div>
+      </div>
+      <div class="chips">{c.topics.map(([id, short, question]) => <button type="button" data-ask={id} data-q={question}>{short}</button>)}</div>
+      <form class="ask" data-ask-form>
+        <input name="q" class="field" autocomplete="off" placeholder="Pregunta sobre Francisco…" aria-label="Pregunta para el asistente" />
+        <button aria-label="Enviar">↑</button>
+      </form>
+    </aside>
+
+    <footer class="status">
+      <button type="button" data-view="scm">⑂ main</button>
+      <button type="button" data-panel-tab="problems">✓ 0 problemas</button>
+      <span class="grow"></span>
+      <button type="button" data-cmd="goto" data-pos>Ln 1, Col 1</button>
+      <span>UTF-8</span>
+      <span data-status-lang>Markdown</span>
+      <button type="button" data-view="agents" data-agents-status>● 5 agentes</button>
+      <button type="button" class="status-theme" data-cmd="theme" data-theme-label aria-label="Cambiar tema" aria-pressed="true">☀ Claro</button>
+    </footer>
+
+    <div class="palette" data-palette hidden>
+      <div class="palette-box" role="dialog" aria-label="Paleta de comandos">
+        <input data-palette-input autocomplete="off" spellcheck="false" aria-label="Comando o archivo" />
+        <ul data-palette-list role="listbox"></ul>
+        <p class="hint">Archivos sin prefijo · <kbd>&gt;</kbd> comandos · <kbd>:</kbd> ir a línea</p>
+      </div>
+    </div>
+    <div class="toasts" data-toasts aria-live="polite"></div>
+  </div>
+  <script type="application/json" id="ed-data" set:html={JSON.stringify(data)} />
+</Proto>
+
+<style is:global>
+  .p4 {
+    --mut: color-mix(in srgb, var(--ink) 55%, var(--paper));
+    --line: color-mix(in srgb, var(--ink) 16%, var(--paper));
+    --hover: color-mix(in srgb, var(--ink) 7%, transparent);
+    --field: #fff;
+    --chrome: #141414; --chrome-ink: #f3efe6;
+    font: 400 13px/1.5 "Hanken Grotesk Variable", sans-serif;
+    height: 100dvh; overflow: hidden;
+    .pn { display: none; }
+    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
+    kbd { font: 500 10.5px var(--mono); padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; }
+    .field { width: 100%; padding: 6px 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--field); color: inherit; font: inherit; outline: none; resize: vertical; }
+    .field:focus { border-color: var(--blue); }
+    .primary { width: 100%; margin-top: 8px; padding: 6px 10px; border-radius: 4px; background: var(--blue); color: #fff; text-align: center; font-weight: 600; }
+    .primary:hover { filter: brightness(1.12); }
+    .hint { padding: 8px 2px; color: var(--mut); font-size: 12px; }
+    .x { width: 22px; height: 22px; border-radius: 5px; text-align: center !important; font-size: 10px; opacity: .7; }
+    .x:hover { background: var(--hover); opacity: 1; }
+
+    .app { position: relative; height: 100%; display: grid; grid-template: 34px minmax(0, 1fr) 24px / 48px var(--side-w, 250px) minmax(0, 1fr) var(--assist-w, 300px); grid-template-areas: "title title title title" "act side ed assist" "status status status status"; }
+    .app.no-side { --side-w: 0px; } .app.no-side .side { display: none; }
+    .app.no-assist { --assist-w: 0px; } .app.no-assist .assist { display: none; }
+    .logo { width: 16px; height: 16px; border-radius: 4px; background: conic-gradient(var(--red) 0 25%, var(--chrome-ink) 0 50%, var(--red) 0 75%, var(--chrome-ink) 0); }
+    .logo.big { width: 64px; height: 64px; border-radius: 14px; background: conic-gradient(var(--red) 0 25%, var(--ink) 0 50%, var(--red) 0 75%, var(--ink) 0); opacity: .18; }
+
+    .titlebar { grid-area: title; display: flex; align-items: center; gap: 14px; padding-left: 14px; background: var(--chrome); color: var(--chrome-ink); font-size: 12.5px; }
+    .back { padding: 3px 9px; border-radius: 6px; background: var(--red); color: #141414; text-decoration: none; font-weight: 600; }
+    .menu { display: flex; gap: 12px; opacity: .7; }
+    .command { display: flex; align-items: center; gap: 30px; margin-inline: auto; padding: 3px 12px 3px 80px; border: 1px solid #3a3a3a; border-radius: 6px; background: #1f1f1f; font: 500 11px var(--mono); }
+    .command:hover { border-color: #5a5a5a; }
+    .command kbd { border-color: #444; opacity: .7; }
+    .theme-btn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid #555; border-radius: 999px; background: #262626; color: var(--chrome-ink); font: 600 11px var(--mono); white-space: nowrap; transition: background .15s, border-color .15s; }
+    .theme-btn:hover { background: #383838; border-color: var(--red); }
+    .layout { display: flex; gap: 2px; }
+    .layout button { width: 28px; height: 26px; border-radius: 5px; display: grid; place-items: center; }
+    .layout button:hover { background: #2a2a2a; }
+    .layout svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.2; }
+    .win { display: flex; height: 100%; }
+    .win i { width: 46px; display: grid; place-items: center; font-style: normal; opacity: .7; }
+
+    .activity { grid-area: act; display: flex; flex-direction: column; align-items: center; padding-top: 4px; background: var(--surface); border-right: 1px solid var(--line); }
+    .activity .grow { flex: 1; }
+    .activity button { position: relative; width: 48px; height: 46px; display: grid; place-items: center; border-left: 2px solid transparent; opacity: .55; transition: opacity .15s; }
+    .activity button:hover { opacity: .9; }
+    .activity button.on { border-color: var(--red); opacity: 1; }
+    .activity svg { width: 22px; height: 22px; fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+    .activity .fill { fill: var(--ink); stroke: none; }
+    .activity em { position: absolute; right: 7px; bottom: 7px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--blue); color: #fff; font: 600 9px/15px var(--mono); font-style: normal; text-align: center; }
+    .activity em.dot { min-width: 8px; height: 8px; padding: 0; background: var(--red); animation: ed-pulse .9s ease-in-out infinite; }
+    .activity em[hidden] { display: none; }
+
+    .head { display: flex; align-items: center; gap: 8px; padding: 10px 14px 6px; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+    .head.sub { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+    .head em { font-style: normal; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--red); white-space: nowrap; }
+    .head .x { margin-left: auto; }
+    .side { grid-area: side; background: var(--surface); border-right: 1px solid var(--line); overflow-y: auto; min-width: 0; }
+    .side > section { padding-bottom: 20px; }
+    .side > section > .field, .side > section > .hint, .side > section > .primary, .side .commit { margin-inline: 12px; width: calc(100% - 24px); }
+    .side [hidden] { display: none !important; }
+    .root { padding: 2px 10px; font-weight: 700; font-size: 11.5px; text-transform: uppercase; }
+    .tree button, .dir, .outline button { display: flex; align-items: center; gap: 7px; width: 100%; padding: 3px 10px 3px 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tree .nested button { padding-left: 38px; }
+    .dir { opacity: .8; }
+    .tree button:hover, .outline button:hover, .results button:hover, .graph button:hover, .exts li:hover { background: var(--hover); }
+    .tree button.on { background: color-mix(in srgb, var(--blue) 16%, transparent); outline: 1px solid var(--blue); outline-offset: -1px; }
+    .outline button { padding-left: calc(18px + var(--d, 0) * 12px); color: var(--mut); }
+    .outline button::before { content: "◇"; color: var(--blue); font-size: 9px; }
+    .outline:empty::after { content: "Sin símbolos en este archivo."; display: block; padding: 3px 24px; color: var(--mut); }
+    b[class^="b-"] { width: 18px; flex: none; font: 700 9.5px var(--mono); text-align: center; }
+    .b-md { color: var(--blue); } .b-yaml { color: var(--red); } .b-json { color: #b8860b; } .b-ts { color: var(--blue); }
+
+    .results { margin-top: 4px; }
+    .results .file { padding: 6px 12px 2px; font-weight: 700; display: flex; gap: 6px; align-items: center; }
+    .results .file small { margin-left: auto; padding: 0 6px; border-radius: 8px; background: var(--line); font-weight: 500; }
+    .results button { display: block; width: 100%; padding: 2px 12px 2px 30px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--mut); }
+    .results mark { background: color-mix(in srgb, var(--red) 30%, transparent); color: var(--ink); border-radius: 2px; }
+
+    .commit .primary { margin-inline: 0; width: 100%; }
+    .graph { padding: 0 6px; }
+    .graph button { position: relative; display: grid; grid-template-columns: 18px 1fr; column-gap: 8px; width: 100%; padding: 6px 8px; border-radius: 4px; }
+    .graph i { grid-row: span 3; position: relative; width: 18px; }
+    .graph i::before { content: ""; position: absolute; left: 8px; top: -8px; bottom: -16px; width: 2px; background: var(--blue); }
+    .graph li:last-child i::before { bottom: 50%; }
+    .graph i::after { content: ""; position: absolute; left: 4px; top: 3px; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--blue); }
+    .graph i.head::after { background: var(--red); border-color: var(--red); }
+    .graph span { line-height: 1.3; }
+    .graph time { color: var(--mut); font: 500 10.5px var(--mono); }
+    .graph em { justify-self: start; margin-top: 3px; padding: 0 6px; border-radius: 8px; background: var(--red); color: #141414; font: 600 10px var(--mono); font-style: normal; }
+
+    .exts li { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 7px 12px; }
+    .exts li[hidden] { display: none; }
+    .tile { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 6px; background: var(--ink); color: var(--paper); font: 700 12px var(--mono); }
+    .exts li:nth-child(3n + 2) .tile { background: var(--blue); color: #fff; }
+    .exts li:nth-child(3n) .tile { background: var(--red); color: #141414; }
+    .exts b { display: block; }
+    .exts small, .agent-list small { display: block; color: var(--mut); font-size: 11.5px; line-height: 1.3; }
+    .exts em { font: 500 10px var(--mono); font-style: normal; color: var(--mut); }
+
+    .progress { height: 3px; margin: 10px 12px; background: var(--line); border-radius: 2px; overflow: hidden; }
+    .progress i { display: block; height: 100%; background: var(--red); transform-origin: left; transform: scaleX(var(--p, 0)); transition: transform .4s; }
+    .agent-list li { display: grid; grid-template-columns: 10px 40px 1fr; align-items: start; gap: 8px; padding: 6px 14px; }
+    .agent-list li > i { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--line); transition: background .2s; }
+    .agent-list li.busy > i { background: var(--red); animation: ed-pulse .9s ease-in-out infinite; }
+    .agent-list li.done > i { background: var(--blue); }
+    .agent-list code { font: 500 11px/1.6 var(--mono); color: var(--blue); }
+    .agent-list .me { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
+
+    .editor { grid-area: ed; display: grid; grid-template: 35px auto minmax(0, 1fr) var(--panel-h, minmax(140px, 32%)) / minmax(0, 1fr); min-width: 0; min-height: 0; background: var(--paper); }
+    .app.no-panel .editor { --panel-h: 0px; } .app.no-panel .panel { display: none; }
+    .tabs { display: flex; overflow-x: auto; background: var(--surface); scrollbar-width: none; }
+    .tab { flex: none; display: flex; align-items: center; border-right: 1px solid var(--line); border-top: 2px solid transparent; }
+    .tab[hidden] { display: none; }
+    .tab.on { background: var(--paper); border-top-color: var(--red); }
+    .tab [role="tab"] { display: flex; align-items: center; gap: 6px; height: 100%; padding: 0 4px 0 12px; }
+    .tab:not(.on) [role="tab"] { opacity: .65; }
+    .tab .x { margin-right: 6px; opacity: 0; }
+    .tab:hover .x, .tab.on .x { opacity: .7; }
+    .crumbs { padding: 4px 18px; font-size: 12px; color: var(--mut); border-bottom: 1px solid var(--line); }
+
+    .code { overflow: auto; min-height: 0; counter-reset: ln; scrollbar-width: thin; }
+    .pane { display: grid; grid-template-columns: minmax(0, 1fr) 96px; padding-top: 10px; }
+    .pane[hidden], .empty[hidden] { display: none; }
+    .lines { padding-bottom: 40px; counter-reset: ln; }
+    .ln { display: grid; grid-template-columns: 58px 1fr; padding-right: 18px; font: 400 12.5px/1.75 var(--mono); counter-increment: ln; }
+    .ln::before { content: counter(ln); padding-right: 22px; text-align: right; color: var(--mut); opacity: .6; user-select: none; }
+    .ln code { font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .ln.cur { background: var(--hover); }
+    .ln.cur::before { color: var(--ink); opacity: 1; }
+    .ln.cur code::after { content: ""; display: inline-block; width: 2px; height: 1.2em; margin-left: 1px; vertical-align: -.2em; background: var(--red); animation: ed-blink 1s steps(1) infinite; }
+    .ln.flash { animation: ed-flash 1.6s ease-out; }
+    .ln.ghost code { opacity: .45; font-style: italic; }
+    .ln.ghost code::after { display: none; }
+    .ln.ghost kbd { margin-left: 14px; font-style: normal; opacity: .9; }
+    .ln.ghost[hidden] { display: none; }
+    .ln.ghost:not([hidden]) { animation: ed-in .3s ease-out; cursor: pointer; }
+    /* Opacity + transform only: the reveal stays on the compositor. */
+    .pane.typing .ln { animation: ed-in .32s cubic-bezier(.2, .8, .2, 1) backwards; animation-delay: calc(var(--l) * 26ms); }
+    .h { color: var(--red); font-weight: 700; } .q { color: var(--mut); font-style: italic; } .p { color: var(--mut); }
+    .b { font-weight: 700; } .s { color: var(--red); } .f { color: var(--blue); } .k { color: var(--blue); font-weight: 700; } .c { color: var(--mut); font-style: italic; }
+    .ln a { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 3px; }
+    .ln a.a { color: var(--blue); }
+    .ln a:hover { background: color-mix(in srgb, var(--red) 18%, transparent); }
+
+    .mini { position: sticky; top: 0; align-self: start; padding: 0 12px 0 6px; border-left: 1px solid var(--line); cursor: pointer; }
+    .mini i { display: block; height: 2px; margin-bottom: 2px; max-width: 76px; border-radius: 1px; background: color-mix(in srgb, var(--ink) 28%, transparent); }
+    .mini .m-h, .mini .m-s { background: color-mix(in srgb, var(--red) 70%, transparent); }
+    .mini .m-f, .mini .m-k, .mini .m-a { background: color-mix(in srgb, var(--blue) 70%, transparent); }
+    .mini-view { position: absolute; left: 0; right: 0; top: 0; height: var(--vh, 100%); transform: translateY(var(--vy, 0)); background: color-mix(in srgb, var(--ink) 9%, transparent); pointer-events: none; }
+    .app.no-mini .mini { display: none; } .app.no-mini .pane { grid-template-columns: minmax(0, 1fr); }
+    .empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 16px; color: var(--mut); }
+
+    .panel { display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--line); background: var(--paper); }
+    .panel-head { display: flex; align-items: center; gap: 18px; padding: 4px 12px 0 18px; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .05em; }
+    .panel-head [role="tab"] { padding: 4px 0; opacity: .55; border-bottom: 1.5px solid transparent; }
+    .panel-head [role="tab"].on { opacity: 1; border-color: var(--red); }
+    .panel-head em { margin-left: auto; font-style: normal; color: var(--red); text-transform: none; letter-spacing: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .panel-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .panel-body[hidden] { display: none; }
+    .panel-body.note { padding: 10px 18px; font: 400 12px/1.8 var(--mono); color: var(--mut); }
+    .out { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 18px 0; font: 400 12px/1.7 var(--mono); scrollbar-width: thin; }
+    .out li { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .out li.new { animation: ed-in .2s ease-out; }
+    .out .cmd { color: var(--mut); }
+    .out .cmd b, .prompt b { color: var(--blue); font-weight: 500; }
+    .out li > b.who { display: inline-block; min-width: 7ch; color: var(--red); font-weight: 500; }
+    .out .ok > b.who { color: var(--blue); }
+    .out .err { color: var(--red); }
+    .out a { color: var(--blue); }
+    .prompt { display: flex; gap: 8px; padding: 2px 18px 8px; font: 400 12px/1.7 var(--mono); color: var(--mut); }
+    .prompt label { white-space: nowrap; }
+    .prompt input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--ink); font: inherit; caret-color: var(--red); }
+
+    .assist { grid-area: assist; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-left: 1px solid var(--line); }
+    .thread { flex: 1; overflow-y: auto; padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+    .bubble { max-width: 92%; padding: 8px 11px; border-radius: 10px; line-height: 1.45; animation: ed-in .25s ease-out; }
+    .bubble.bot { background: var(--paper); border: 1px solid var(--line); border-top-left-radius: 3px; }
+    .bubble.user { align-self: flex-end; background: var(--ink); color: var(--paper); border-top-right-radius: 3px; }
+    .bubble .open { display: inline-flex; gap: 6px; margin-top: 8px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 5px; font: 500 11px var(--mono); }
+    .bubble .open:hover { border-color: var(--blue); color: var(--blue); }
+    .bubble.thinking { color: var(--mut); font: 500 11px var(--mono); }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 12px 8px; }
+    .chips button { padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; font-size: 11.5px; background: var(--paper); }
+    .chips button:hover { border-color: var(--ink); }
+    .ask { display: flex; gap: 6px; padding: 0 12px 12px; }
+    .ask button { flex: none; width: 30px; border-radius: 6px; background: var(--red); color: #141414; text-align: center; font-weight: 700; }
+
+    .status { grid-area: status; display: flex; align-items: center; gap: 4px; padding: 0 6px; overflow: hidden; white-space: nowrap; background: var(--red); color: #141414; font: 500 11px var(--mono); }
+    .status > * { padding: 0 6px; height: 100%; display: flex; align-items: center; }
+    .status button:hover { background: rgb(0 0 0 / .1); }
+    .status .grow { flex: 1; }
+    .status-theme { background: rgb(0 0 0 / .14); font-weight: 600; }
+
+    .palette { position: absolute; inset: 0; z-index: 30; display: grid; justify-items: center; align-content: start; padding-top: 44px; background: rgb(0 0 0 / .12); }
+    .palette[hidden] { display: none; }
+    .palette-box { width: min(620px, calc(100% - 24px)); padding: 6px; border-radius: 8px; background: var(--paper); border: 1px solid var(--line); box-shadow: 0 18px 50px -12px rgb(0 0 0 / .45); animation: ed-drop .14s ease-out; }
+    .palette-box input { width: 100%; padding: 7px 10px; border: 1px solid var(--blue); border-radius: 5px; background: var(--field); color: inherit; font: 400 13px var(--mono); outline: none; }
+    .palette-box ul { max-height: 340px; overflow-y: auto; margin-top: 4px; }
+    .palette-box li { display: flex; align-items: center; gap: 10px; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+    .palette-box li.sel { background: color-mix(in srgb, var(--blue) 18%, transparent); }
+    .palette-box li small { color: var(--mut); }
+    .palette-box li kbd { margin-left: auto; }
+    .palette-box li u { text-decoration: none; color: var(--blue); font-weight: 700; }
+    .palette-box .hint { padding: 6px 10px 2px; }
+
+    .toasts { position: absolute; right: 14px; bottom: 34px; z-index: 25; display: flex; flex-direction: column; gap: 8px; width: min(360px, calc(100% - 28px)); pointer-events: none; }
+    .toast { pointer-events: auto; padding: 10px 12px; border-radius: 6px; background: var(--paper); border: 1px solid var(--line); border-left: 3px solid var(--blue); box-shadow: 0 10px 30px -10px rgb(0 0 0 / .35); animation: ed-toast .3s cubic-bezier(.2, .8, .2, 1); }
+    .toast p { margin-bottom: 8px; }
+    .toast .acts { display: flex; gap: 6px; justify-content: flex-end; }
+    .toast .acts button { padding: 3px 10px; border-radius: 4px; background: var(--hover); font-size: 12px; }
+    .toast .acts button:first-child { background: var(--blue); color: #fff; }
+    .toast.out-t { opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; }
+
+    @media (max-width: 1180px) { .app { --assist-w: 0px; } .assist { display: none; } .app.show-assist .assist { display: flex; position: absolute; z-index: 20; right: 0; top: 34px; bottom: 24px; width: min(340px, 90%); box-shadow: -10px 0 30px -12px rgb(0 0 0 / .3); } }
+    @media (max-width: 760px) {
+      .app { --side-w: 0px; }
+      .side { display: none; position: absolute; z-index: 20; left: 48px; top: 34px; bottom: 24px; width: min(280px, calc(100% - 60px)); box-shadow: 10px 0 30px -12px rgb(0 0 0 / .3); }
+      .app.show-side .side { display: block; }
+      .menu, .win, .command kbd, .layout, .status > :nth-child(2), .status > :nth-child(5), .status > :nth-child(6) { display: none; }
+      .command { padding-inline: 12px; gap: 0; }
+      .theme-btn { margin-right: 10px; }
+      .pane { grid-template-columns: minmax(0, 1fr); } .mini { display: none; }
+      .ln { grid-template-columns: 38px 1fr; padding-right: 12px; }
+      .ln::before { padding-right: 12px; }
+      .ln.ghost kbd { display: none; }
+    }
+  }
+  html[data-theme="dark"] .p4 {
+    --paper: #171717; --surface: #1f1f1f; --ink: #ebe7de; --blue: #8b9cff; --field: #121212;
+    --line: #2f2f2f; --hover: rgb(255 255 255 / .06); --chrome: #0c0c0c;
+    background: #171717;
+  }
+  @keyframes ed-in { from { opacity: 0; transform: translateX(-6px); } }
+  @keyframes ed-blink { 50% { opacity: 0; } }
+  @keyframes ed-pulse { 50% { transform: scale(1.5); } }
+  @keyframes ed-flash { from { background: color-mix(in srgb, var(--red) 28%, transparent); } }
+  @keyframes ed-drop { from { opacity: 0; transform: translateY(-6px); } }
+  @keyframes ed-toast { from { opacity: 0; transform: translateY(12px); } }
+</style>
+
+<script>
+  import "../../scripts/editor";
+</script>

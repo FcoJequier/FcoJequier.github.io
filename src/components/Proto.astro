@@ -1,0 +1,26 @@
+---
+// Shell for the lab experiments (/lab/*): alternative visual directions of the same content.
+import "@fontsource-variable/martian-mono";
+import "../styles/proto.css";
+
+interface Props { name: string; cls: string }
+const { name, cls } = Astro.props;
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{name} · Laboratorio — Francisco Jequier</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script is:inline>try{const p=JSON.parse(sessionStorage.vt||"null");if(p){const s=document.documentElement.style;s.setProperty("--vx",p[0]+"px");s.setProperty("--vy",p[1]+"px")}}catch{}</script>
+  </head>
+  <body class={cls}>
+    <slot />
+    <nav class="pn" aria-label="Laboratorio">
+      <a href="/">← Volver al chat</a>
+      <a aria-current="page">Experimento<span> · {name}</span></a>
+    </nav>
+  </body>
+</html>

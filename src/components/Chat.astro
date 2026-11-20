@@ -1,0 +1,631 @@
+---
+// The site: a portfolio shaped like a desktop AI-assistant app. Visitors "ask" and get the
+// sections as answers. Answers are fixed content, not a model, and the UI says so.
+// Features: streamed answers, copy / regenerate / share per answer, deep links (#topic),
+// slash menu, conversation history, a side panel ("artifact") with a live diagram or a
+// career timeline, and a dark theme.
+import "@fontsource-variable/martian-mono";
+import "@fontsource-variable/bricolage-grotesque/standard.css";
+import "@fontsource-variable/hanken-grotesk";
+import "../styles/proto.css";
+import { content, links, agentIds, type Lang } from "../content";
+
+interface Props { lang: Lang }
+const t = content[Astro.props.lang];
+const c = t.chat;
+const site = "https://fcojequier.github.io";
+const q = (id: string) => c.topics.find(([k]) => k === id)!;
+// Each answer suggests where to go next, so the whole site can be read without the sidebar.
+const next: Record<string, string[]> = { quien: ["metodo", "experiencia"], metodo: ["agentes"], agentes: ["experiencia"], experiencia: ["lab"], lab: ["contacto"], contacto: [] };
+const panelFor: Record<string, string> = { agentes: "agents", experiencia: "career" };
+
+// Career timeline (Gantt-like): months per role, from the dates written in content.ts.
+const MONTHS: Record<string, number> = { ene: 0, jan: 0, feb: 1, mar: 2, abr: 3, apr: 3, may: 4, jun: 5, jul: 6, ago: 7, aug: 7, sep: 8, oct: 9, nov: 10, dic: 11, dec: 11 };
+const now = new Date();
+const toIdx = (s: string) => {
+  const m = s.trim().toLowerCase().match(/^([a-z]{3})\w* (\d{4})$/);
+  return m ? Number(m[2]) * 12 + MONTHS[m[1]] : now.getFullYear() * 12 + now.getMonth(); // "hoy" / "now"
+};
+const spans = t.exp.items.map(([dates, role, company]) => {
+  const [a, b] = dates.split("—");
+  return { dates, role, company, start: toIdx(a), end: toIdx(b) };
+});
+const t0 = Math.min(...spans.map((s) => s.start)), t1 = Math.max(...spans.map((s) => s.end)) + 1;
+const years = Array.from({ length: Math.floor((t1 - 1) / 12) - Math.floor(t0 / 12) + 1 }, (_, i) => Math.floor(t0 / 12) + i);
+
+const laneY = [44, 122, 200, 278, 356];
+const lanePath = (y: number) => `M96 200 C 250 200, 250 ${y}, 420 ${y}`;
+const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.slash];
+---
+<!doctype html>
+<html lang={t.lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{t.title}</title>
+    <meta name="description" content={t.description} />
+    <link rel="canonical" href={site + t.path} />
+    <link rel="alternate" hreflang="es" href={site + "/"} />
+    <link rel="alternate" hreflang="en" href={site + "/en/"} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:title" content={t.title} />
+    <meta property="og:description" content={t.description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={site + t.path} />
+    <meta name="theme-color" content="#171717" />
+    <script is:inline>try{const p=JSON.parse(sessionStorage.vt||"null");if(p){const s=document.documentElement.style;s.setProperty("--vx",p[0]+"px");s.setProperty("--vy",p[1]+"px")}if(localStorage.getItem("chat-theme")!=="light")document.documentElement.dataset.theme="dark"}catch{}</script>
+    <noscript><style>.pc .answers > [hidden] { display: grid !important; } .pc .hello, .pc .dock { display: none !important; }</style></noscript>
+  </head>
+  <body class="pc" data-thinking={c.thinking} data-untitled={c.newChat} data-copy={c.copy} data-copied={c.copied} data-link-copied={c.linkCopied} data-theme-light={c.themeLight} data-theme-dark={c.themeDark}>
+    <aside class="side">
+      <div class="brand"><i class="mark" aria-hidden="true"></i>Francisco Jequier</div>
+      <button class="new" type="button" data-new>＋ {c.newChat}</button>
+      <p class="label">{c.questions}</p>
+      <ul>
+        {c.topics.map(([id, short, question]) => <li><button type="button" data-ask={id} data-q={question}>{short}</button></li>)}
+      </ul>
+      <p class="label" data-history-label hidden>{c.history}</p>
+      <ul class="history" data-history></ul>
+      <p class="label">{c.versions}</p>
+      <ul>
+        {c.versionList.map(([href, name]) => <li><a href={href}>{name}</a></li>)}
+      </ul>
+      <div class="me"><b>FJ</b><span>{t.hero.kicker}<small>{t.footer}</small></span></div>
+    </aside>
+
+    <main>
+      <header>
+        <span data-title>{c.newChat}</span>
+        <em>{c.sim}</em>
+        <button type="button" class="theme-toggle" data-theme-toggle aria-label={c.theme} title={c.theme} aria-pressed="true">☀ {c.themeLight}</button>
+        <a href={t.otherPath} hreflang={t.otherLabel.toLowerCase()}>{t.otherLabel}</a>
+      </header>
+
+      <div class="thread">
+        <div class="hello">
+          <i class="mark big" aria-hidden="true"></i>
+          <h1>{c.hello[0]}<br />{c.hello[1]}</h1>
+        </div>
+        <div class="log" aria-live="polite"></div>
+
+        <!-- Real (hidden) markup so the content is in the page without JavaScript. -->
+        <div class="answers">
+          <section hidden id="a-quien" class="msg bot done"><i class="mark" aria-hidden="true"></i><div class="body">
+            <p><strong>Francisco Jequier</strong> {c.who} {t.hero.lead}</p>
+            <p class="big">{t.hero.lines.join(" ")}</p>
+          </div></section>
+
+          <section hidden id="a-metodo" class="msg bot done"><i class="mark" aria-hidden="true"></i><div class="body">
+            <p>{t.method.title} {c.methodMore}</p>
+            <ol class="steps">{t.method.steps.map(([verb, text], i) => <li><span>0{i + 1}</span><div><b>{verb}</b>{text}</div></li>)}</ol>
+            <blockquote>{t.rule.a} <mark>{t.rule.hl}</mark>, {t.rule.b}</blockquote>
+          </div></section>
+
+          <section hidden id="a-agentes" class="msg bot done"><i class="mark" aria-hidden="true"></i><div class="body">
+            <p>{t.agents.title}</p>
+            <ul class="tools">{t.agents.list.map(([name, text], i) => <li style={`--k:${i}`}><code>{agentIds[i]}</code><div><b>{name}</b>{text}</div><i aria-hidden="true">✓</i></li>)}</ul>
+            <p class="note">{c.agentsNote}</p>
+          </div></section>
+
+          <section hidden id="a-experiencia" class="msg bot done"><i class="mark" aria-hidden="true"></i><div class="body">
+            <p>{t.exp.title}</p>
+            <ol class="time">{t.exp.items.map(([dates, role, company, text]) => <li><time>{dates}</time><div><b>{role} <span>@ {company}</span></b>{text}</div></li>)}</ol>
+          </div></section>
+
+          <section hidden id="a-lab" class="msg bot done"><i class="mark" aria-hidden="true"></i><div class="body">
+            <p>{t.lab.title} {c.labMore}</p>
+            <div class="files">
+              <a href={links.repo} rel="noopener"><code>repo</code><b>{c.repoLabel}</b><span>GitHub ↗</span></a>
+              {c.versionList.map(([href, name, text], i) => <a href={href}><code>v{i + 1}</code><b>{name}</b><span>{text}</span></a>)}
+            </div>
+            <p class="note">{c.labNext}</p>
+          </div></section>
+
+          <section hidden id="a-contacto" class="msg bot done"><i class="mark" aria-hidden="true"></i><div class="body">
+            <p>{t.contact.text}</p>
+            <div class="files">
+              <a href={`mailto:${links.email}`}><code>mail</code><b>{links.email}</b><span>↗</span></a>
+              <a href={links.linkedin} rel="noopener"><code>in</code><b>/in/francisco-jequier</b><span>LinkedIn ↗</span></a>
+              <a href={links.github} rel="noopener"><code>git</code><b>/FcoJequier</b><span>GitHub ↗</span></a>
+            </div>
+          </div></section>
+
+          <section hidden id="a-nose" class="msg bot done"><i class="mark" aria-hidden="true"></i><div class="body">
+            <p>{c.unknown}</p>
+            <div class="next">{c.topics.map(([id, short, question]) => <button type="button" data-ask={id} data-q={question}>{short}</button>)}</div>
+          </div></section>
+
+          {Object.entries(next).map(([id, ids]) => ids.length > 0 && (
+            <div hidden class="next" data-next={id}>{ids.map((n) => <button type="button" data-ask={n} data-q={q(n)[2]}>{q(n)[2]}</button>)}</div>
+          ))}
+          {Object.entries(panelFor).map(([id, panel]) => (
+            <button hidden type="button" class="open-panel" data-panel-for={id} data-open-panel={panel}>▣ {c.openPanel}</button>
+          ))}
+          <div hidden class="acts" data-acts>
+            <button type="button" data-act="copy">⧉ {c.copy}</button>
+            <button type="button" data-act="regen">↻ {c.regen}</button>
+            <button type="button" data-act="share">🔗 {c.share}</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="dock">
+        <div class="chips">
+          {c.topics.map(([id, , question]) => <button type="button" data-ask={id} data-q={question}>{question}</button>)}
+        </div>
+        <div class="slash" data-slash hidden role="listbox">
+          {slashItems.map(([id, label]) => <button type="button" role="option" data-slash-item={id}><code>/{id}</code><span>{label}</span></button>)}
+        </div>
+        <form class="composer">
+          <input name="q" autocomplete="off" placeholder={`${c.placeholder}  ·  ${c.slashHint}`} aria-label={c.ask} />
+          <button aria-label={c.send}>↑</button>
+        </form>
+        <p class="fine">{c.fine}</p>
+      </div>
+    </main>
+
+    <aside class="artifact" data-artifact hidden aria-label="Panel">
+      <div class="art-in">
+        <header><span data-art-title></span><button type="button" class="icon" data-art-close aria-label={c.close}>✕</button></header>
+
+        <section data-art="agents" data-art-name={c.artifactAgents} hidden>
+          <svg viewBox="0 0 520 400" role="img" aria-label={t.agents.title}>
+            {laneY.map((y, i) => (
+              <g style={`--i:${i}`}>
+                <path id={`aw${i}`} class="wire" d={lanePath(y)} />
+                <circle class="pulse" r="5">
+                  <animateMotion dur="2.6s" begin={`${i * 0.45}s`} repeatCount="indefinite" keyPoints="0;1;1;0" keyTimes="0;0.45;0.55;1" calcMode="linear">
+                    <mpath href={`#aw${i}`} />
+                  </animateMotion>
+                </circle>
+                <rect class="node" x="420" y={y - 17} width="92" height="34" rx="10" />
+                <text class="node-t" x="466" y={y + 4} text-anchor="middle">{agentIds[i]}</text>
+              </g>
+            ))}
+            <circle class="orb" cx="62" cy="200" r="32" />
+            <text class="orb-t" x="62" y="205" text-anchor="middle">{t.hero.me}</text>
+          </svg>
+          <ol class="art-log" data-art-log data-log={JSON.stringify(t.log)}></ol>
+          <p class="note">{t.hero.simNote}</p>
+        </section>
+
+        <section data-art="career" data-art-name={c.artifactExp} hidden>
+          <div class="gantt" style={`--cols:${t1 - t0}`}>
+            <div class="years">{years.map((y) => <span style={`left:${((Math.max(y * 12, t0) - t0) / (t1 - t0)) * 100}%`}>{y}</span>)}</div>
+            {spans.map((s, i) => (
+              <div class:list={["row", { now: i === 0, late: (s.end - t0 + 1) / (t1 - t0) > 0.7 }]} style={`--i:${i}`}>
+                <p><b>{s.role}</b><small>{s.company} · {s.dates}</small></p>
+                <div class="track"><i style={`left:${((s.start - t0) / (t1 - t0)) * 100}%;width:${(Math.max(1, s.end - s.start + 1) / (t1 - t0)) * 100}%`}><em>{Math.max(1, s.end - s.start + 1)} {s.end - s.start + 1 > 1 ? c.months : c.month}</em></i></div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </aside>
+  </body>
+</html>
+
+<style is:global>
+  .pc {
+    --disp: "Bricolage Grotesque Variable", sans-serif;
+    --field: #fff;
+    --art-w: 0px;
+    font: 400 1rem/1.6 "Hanken Grotesk Variable", sans-serif;
+    height: 100dvh; display: grid; grid-template-columns: 264px minmax(0, 1fr) var(--art-w); overflow: hidden;
+    &.art-open { --art-w: min(46vw, 580px); }
+
+    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
+    .mark { display: inline-block; width: 18px; height: 18px; background: conic-gradient(var(--red) 0 25%, var(--ink) 0 50%, var(--red) 0 75%, var(--ink) 0); border-radius: 4px; animation: pc-turn 6s cubic-bezier(.7, 0, .2, 1) infinite; }
+    .mark.big { width: 44px; height: 44px; border-radius: 9px; }
+    .icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; text-align: center; }
+    .icon:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+
+    .side { display: flex; flex-direction: column; gap: 4px; padding: 14px 10px; background: var(--surface); border-right: 1.5px solid var(--ink); overflow-y: auto; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 6px 10px 14px; font: 700 1.02rem var(--disp); }
+    .new { padding: 10px 12px; border: 1.5px solid var(--ink); border-radius: 10px; background: var(--paper); font-weight: 600; transition: transform .15s, box-shadow .15s; }
+    .new:hover { transform: translate(-2px, -2px); box-shadow: 3px 3px 0 var(--ink); }
+    .label { padding: 18px 12px 4px; font: 500 10px var(--mono); text-transform: uppercase; letter-spacing: .08em; opacity: .6; }
+    .label[hidden] { display: none; }
+    .side li :is(button, a) { display: block; width: 100%; padding: 8px 12px; border-radius: 8px; text-decoration: none; transition: background .15s, translate .2s; }
+    .side li :is(button, a):hover, .side li .act { background: var(--paper); translate: 6px 0; }
+    .history button { font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+    .history li { animation: pc-in .3s ease-out backwards; }
+    .me { margin-top: auto; display: flex; gap: 10px; align-items: center; padding: 12px 10px 4px; border-top: 1.5px solid var(--ink); font-size: .8rem; line-height: 1.3; }
+    .me b { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: var(--paper); font: 700 12px var(--mono); }
+    .me small { display: block; opacity: .6; }
+
+    main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    main > header { display: flex; align-items: center; gap: 12px; padding: 8px 22px; border-bottom: 1.5px solid var(--ink); font: 500 12px var(--mono); }
+    main > header span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    main > header em { font-style: normal; color: var(--red); }
+    main > header .theme-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1.5px solid var(--ink); border-radius: 999px; background: var(--surface); font: 600 11.5px var(--mono); white-space: nowrap; transition: background .15s, color .15s, transform .15s; }
+    main > header .theme-toggle:hover { background: var(--ink); color: var(--paper); transform: translateY(-1px); }
+    main > header a { padding: 5px 9px; border: 1.5px solid var(--ink); text-decoration: none; }
+    main > header a:hover { background: var(--ink); color: var(--paper); }
+
+    .thread { flex: 1; overflow-y: auto; padding: 28px 22px 40px; }
+    .thread > *, .answers > * { max-width: 760px; margin-inline: auto; }
+    .hello { height: 100%; display: grid; place-content: center; justify-items: center; gap: 22px; text-align: center; }
+    .hello h1 { font: 600 clamp(2rem, 4.6vw, 3.6rem)/1.02 var(--disp); letter-spacing: -.03em; }
+    &.on .hello { display: none; }
+
+    .msg { margin-bottom: 26px; animation: pc-in .45s cubic-bezier(.2, .9, .2, 1) backwards; scroll-margin-top: 16px; }
+    .msg.user { width: fit-content; max-width: 80%; margin-left: auto; margin-right: 0; padding: 10px 16px; border-radius: 18px 18px 4px 18px; background: var(--ink); color: var(--paper); }
+    .msg.bot { display: grid; grid-template-columns: 26px 1fr; gap: 14px; }
+    .msg.bot > .mark { margin-top: 4px; animation-duration: 1.2s; }
+    .msg.bot.done > .mark { animation: none; }
+    .think { font: 500 12px var(--mono); background: linear-gradient(90deg, var(--ink) 30%, var(--red) 50%, var(--ink) 70%) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: pc-shine 1.1s linear infinite; }
+    .body { min-width: 0; }
+    .body > * { margin-bottom: 14px; animation: pc-in .5s cubic-bezier(.2, .9, .2, 1) backwards; animation-delay: var(--delay, 0ms); }
+    /* Streamed words: opacity only, so the paragraph keeps its final layout from the first frame. */
+    .w { animation: pc-word .18s ease-out backwards; animation-delay: calc(var(--w) * 24ms); }
+    .body .big { font: 700 clamp(1.5rem, 3vw, 2.3rem)/1.05 var(--disp); letter-spacing: -.03em; }
+    .body .note { font: 500 11px var(--mono); opacity: .65; }
+    .body blockquote { padding: 14px 18px; border-left: 4px solid var(--red); background: var(--surface); font: 600 1.1rem/1.35 var(--disp); }
+    .body mark { background: var(--red); color: #141414; padding: 0 .2em; }
+
+    .steps li, .tools li, .time li, .files a { display: grid; gap: 14px; align-items: baseline; padding: 11px 14px; border: 1.5px solid var(--ink); border-bottom-width: 0; background: var(--paper); }
+    :is(.steps, .tools, .time) li:first-child, .files a:first-child { border-radius: 12px 12px 0 0; }
+    :is(.steps, .tools, .time) li:last-child, .files a:last-child { border-bottom-width: 1.5px; border-radius: 0 0 12px 12px; }
+    .steps li { grid-template-columns: 34px 1fr; }
+    .steps span { font: 800 1.2rem var(--disp); color: var(--red); }
+    .body li b { display: block; font: 700 1rem var(--disp); }
+    .body li b span { color: var(--red); }
+    .tools li { grid-template-columns: 58px 1fr 20px; animation: pc-in .4s backwards; animation-delay: calc(var(--k) * 260ms + var(--delay, 0ms)); }
+    .body code, .body time { font: 500 11px var(--mono); color: var(--blue); text-transform: uppercase; }
+    .tools i { font-style: normal; color: var(--red); animation: pc-tick .35s cubic-bezier(.2, 1.8, .4, 1) backwards; animation-delay: calc(var(--k) * 260ms + 400ms + var(--delay, 0ms)); }
+    .time li { grid-template-columns: 150px 1fr; }
+    .files a { grid-template-columns: 44px 1fr auto; text-decoration: none; transition: background .2s, padding-left .2s; }
+    .files a:hover { background: var(--red); color: #141414; padding-left: 22px; }
+    .files b { overflow-wrap: anywhere; }
+    .files span { font: 500 11px var(--mono); }
+
+    .next, .chips, .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+    .answers > [hidden], .next[hidden], .acts[hidden], .open-panel[hidden] { display: none; }
+    .next button, .chips button, .open-panel { flex: none; padding: 7px 13px; border: 1.5px solid var(--ink); border-radius: 999px; background: var(--paper); font-size: .9rem; transition: background .2s, color .2s, transform .2s; }
+    .next button:hover, .chips button:hover, .open-panel:hover { background: var(--ink); color: var(--paper); transform: translateY(-2px); }
+    .open-panel { display: inline-block; border-color: var(--blue); color: var(--blue); font-weight: 600; }
+    .open-panel:hover { background: var(--blue); color: #fff; }
+    .acts { gap: 2px; margin-top: -4px; opacity: .55; transition: opacity .2s; }
+    .msg.bot:hover .acts, .acts:focus-within { opacity: 1; }
+    .acts button { padding: 4px 9px; border-radius: 7px; font: 500 11px var(--mono); }
+    .acts button:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+
+    .dock { position: relative; padding: 0 22px 14px; }
+    .dock > * { max-width: 760px; margin-inline: auto; }
+    .chips { justify-content: center; margin-bottom: 12px; }
+    &.on .chips { display: none; }
+    .slash { position: absolute; left: 22px; right: 22px; bottom: calc(100% - 4px); z-index: 5; padding: 6px; border: 1.5px solid var(--ink); border-radius: 14px; background: var(--paper); box-shadow: 0 16px 40px -16px rgb(0 0 0 / .4); animation: pc-in .15s ease-out; }
+    .slash[hidden] { display: none; }
+    .slash button { display: flex; gap: 12px; align-items: baseline; width: 100%; padding: 7px 10px; border-radius: 8px; }
+    .slash button[hidden] { display: none; }
+    .slash button.sel, .slash button:hover { background: color-mix(in srgb, var(--red) 18%, transparent); }
+    .slash code { min-width: 9ch; font: 600 12px var(--mono); color: var(--blue); }
+    .composer { display: flex; gap: 8px; padding: 8px 8px 8px 18px; border: 1.5px solid var(--ink); border-radius: 18px; background: var(--field); box-shadow: 5px 5px 0 var(--ink); transition: box-shadow .2s; }
+    .composer:focus-within { box-shadow: 5px 5px 0 var(--red); }
+    .composer input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; color: inherit; }
+    .composer button { width: 38px; height: 38px; border-radius: 12px; background: var(--red); color: #141414; text-align: center; font-weight: 700; transition: transform .2s; }
+    .composer button:hover { transform: rotate(-12deg) scale(1.1); }
+    .fine { margin-top: 10px; text-align: center; font: 500 10px var(--mono); opacity: .6; }
+
+    .artifact { min-width: 0; border-left: 1.5px solid var(--ink); background: var(--surface); overflow: hidden; }
+    .artifact[hidden] { display: none; }
+    .art-in { height: 100%; display: flex; flex-direction: column; animation: pc-slide .35s cubic-bezier(.2, .9, .2, 1); }
+    .art-in > header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 8px 20px; border-bottom: 1.5px solid var(--ink); font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .05em; }
+    .art-in section { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 22px; }
+    .art-in section[hidden] { display: none; }
+    .art-in svg { width: 100%; height: auto; color: var(--ink); }
+    .wire { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 5 6; animation: pc-dash 1s linear infinite; }
+    .pulse { fill: var(--red); }
+    .node { fill: var(--paper); stroke: currentColor; stroke-width: 1.5; }
+    .node-t { font: 500 12px var(--mono); fill: currentColor; }
+    .orb { fill: currentColor; }
+    .orb-t { font: 800 15px var(--disp); fill: var(--paper); }
+    .art-log { margin-top: 10px; font: 400 12px/1.8 var(--mono); min-height: 7.2em; }
+    .art-log li { animation: pc-in .3s ease-out backwards; }
+    .art-log b { display: inline-block; min-width: 7ch; color: var(--red); font-weight: 500; }
+    .art-in .note { margin-top: 12px; font: 500 11px var(--mono); opacity: .65; }
+
+    .gantt { position: relative; padding-top: 26px; }
+    .years { position: absolute; left: 0; right: 0; top: 0; height: 100%; margin-left: 40%; pointer-events: none; }
+    .years span { position: absolute; top: 0; bottom: 0; padding-left: 4px; border-left: 1px dashed color-mix(in srgb, var(--ink) 30%, transparent); font: 500 10px var(--mono); opacity: .7; }
+    .row { display: grid; grid-template-columns: 40% 60%; align-items: center; padding: 10px 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 15%, transparent); }
+    .row p { padding-right: 12px; line-height: 1.25; font-size: .9rem; }
+    .row small { display: block; margin-top: 2px; font: 500 10.5px var(--mono); opacity: .7; }
+    .track { position: relative; height: 26px; }
+    .track i { position: absolute; top: 0; height: 100%; min-width: 6px; border-radius: 6px; background: var(--blue); transform-origin: left; animation: pc-grow .7s cubic-bezier(.2, .9, .2, 1) backwards; animation-delay: calc(var(--i) * 110ms + 150ms); }
+    .row.now .track i { background: var(--red); }
+    /* Bars that end near the right edge carry their label on the left. */
+    .row.late .track em { left: auto; right: calc(100% + 6px); }
+    .track em { position: absolute; left: calc(100% + 6px); top: 50%; translate: 0 -50%; white-space: nowrap; font: 500 10.5px var(--mono); font-style: normal; }
+
+    @media (max-width: 800px) {
+      grid-template-columns: minmax(0, 1fr);
+      .side { display: none; }
+      .thread { padding-inline: 14px; }
+      .dock { padding-inline: 14px; }
+      .slash { left: 14px; right: 14px; }
+      .time li { grid-template-columns: 1fr; gap: 2px; }
+      .files a { grid-template-columns: 36px 1fr; }
+      .files span { display: none; }
+      main > header em { display: none; }
+      &.on .chips { display: flex; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; padding-bottom: 4px; }
+      .artifact { position: fixed; inset: 0; z-index: 20; border-left: 0; }
+      .row { grid-template-columns: 1fr; gap: 6px; }
+      .years { margin-left: 0; }
+    }
+  }
+  html[data-theme="dark"] .pc { --paper: #171717; --surface: #1f1f1f; --ink: #ebe7de; --blue: #8b9cff; --field: #212121; background: #171717; }
+  @keyframes pc-turn { 0%, 20% { rotate: 0deg; } 50%, 70% { rotate: 90deg; } 100% { rotate: 180deg; } }
+  @keyframes pc-in { from { opacity: 0; transform: translateY(12px); } }
+  @keyframes pc-word { from { opacity: 0; } }
+  @keyframes pc-shine { to { background-position: -200% 0; } }
+  @keyframes pc-tick { from { opacity: 0; scale: 0; } }
+  @keyframes pc-slide { from { opacity: 0; transform: translateX(40px); } }
+  @keyframes pc-dash { to { stroke-dashoffset: -11; } }
+  @keyframes pc-grow { from { transform: scaleX(0); } }
+</style>
+
+<script>
+  import { reduced } from "../scripts/reveal";
+
+  const body = document.body;
+  const log = document.querySelector<HTMLElement>(".log")!;
+  const title = document.querySelector<HTMLElement>("[data-title]")!;
+  const historyList = document.querySelector<HTMLElement>("[data-history]")!;
+  const historyLabel = document.querySelector<HTMLElement>("[data-history-label]")!;
+  const el = (cls: string, tag = "div") => Object.assign(document.createElement(tag), { className: cls });
+  const topics = new Set([...document.querySelectorAll<HTMLElement>("aside [data-ask]")].map((b) => b.dataset.ask!));
+
+  // Free text is matched to a topic by keyword (Spanish and English); most specific first.
+  const KEYS: [RegExp, string][] = [
+    [/contact|correo|mail|linkedin|github|escrib|reach|hire/i, "contacto"],
+    [/agent|rol|\bia\b|\bai\b|claude|mcp/i, "agentes"],
+    [/experienc|empresa|\bcv\b|trayectoria|career|job|company|resume/i, "experiencia"],
+    [/proyecto|project|public|lab|repo|c[oó]digo|code|portfolio/i, "lab"],
+    [/m[eé]tod|method|trabaja|work|c[oó]mo|how|proces|regla|rule/i, "metodo"],
+    [/qui[eé]n|who|about|perfil|francisco/i, "quien"],
+  ];
+
+  // Wraps every word of a block in a span so it can fade in one after another.
+  const stream = (block: Element, startAt: number) => {
+    let w = startAt;
+    const walk = (node: Node) => {
+      for (const child of [...node.childNodes]) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          const frag = document.createDocumentFragment();
+          for (const part of (child.textContent ?? "").split(/(\s+)/)) {
+            if (!part) continue;
+            if (/^\s+$/.test(part)) { frag.append(part); continue; }
+            const s = el("w", "span");
+            s.textContent = part;
+            s.style.setProperty("--w", String(w++));
+            frag.append(s);
+          }
+          child.replaceWith(frag);
+        } else walk(child);
+      }
+    };
+    walk(block);
+    return w;
+  };
+
+  const fill = (out: HTMLElement, topic: string) => {
+    out.replaceChildren(...document.querySelector(`#a-${topic} .body`)!.cloneNode(true).childNodes);
+    const more = document.querySelector(`[data-next="${topic}"]`)?.cloneNode(true) as HTMLElement | undefined;
+    if (more) { more.hidden = false; out.append(more); }
+    const panelBtn = document.querySelector(`[data-panel-for="${topic}"]`)?.cloneNode(true) as HTMLElement | undefined;
+    if (panelBtn) { panelBtn.hidden = false; out.append(panelBtn); }
+    if (topic !== "nose") { const acts = document.querySelector("[data-acts]")!.cloneNode(true) as HTMLElement; acts.hidden = false; acts.dataset.topic = topic; out.append(acts); }
+    // Text blocks stream word by word; the rest enters after the words have landed.
+    let words = 0;
+    if (!reduced) for (const b of out.querySelectorAll(":scope > p:not(.note), :scope > blockquote")) words = stream(b, words);
+    const base = reduced ? 0 : words * 24;
+    [...out.children].forEach((c, n) => (c as HTMLElement).style.setProperty("--delay", `${base + n * 90}ms`));
+  };
+
+  const ask = (topic: string, question: string, instant = false) => {
+    body.classList.add("on");
+    if (!log.firstChild) title.textContent = question;
+    document.querySelectorAll("aside .act").forEach((b) => b.classList.remove("act"));
+    document.querySelector(`aside [data-ask="${topic}"]`)?.classList.add("act");
+    if (topic !== "nose") history.replaceState(null, "", `#${topic}`);
+
+    const user = el("msg user");
+    user.textContent = question;
+    const bot = el("msg bot");
+    const out = el("body");
+    out.innerHTML = `<p class="think">${body.dataset.thinking} ${topic}.md…</p>`;
+    bot.append(Object.assign(document.createElement("i"), { className: "mark" }), out);
+    log.append(user, bot);
+    if (!instant) user.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" });
+
+    // Conversation history in the sidebar.
+    historyLabel.hidden = false;
+    const li = el("", "li");
+    const hb = el("", "button") as HTMLButtonElement;
+    hb.type = "button";
+    hb.textContent = question;
+    hb.onclick = () => user.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" });
+    li.append(hb);
+    historyList.append(li);
+
+    setTimeout(() => { fill(out, topic); bot.classList.add("done"); }, reduced || instant ? 0 : 850);
+  };
+
+  const reset = () => {
+    log.replaceChildren();
+    historyList.replaceChildren();
+    historyLabel.hidden = true;
+    body.classList.remove("on");
+    title.textContent = body.dataset.untitled!;
+    document.querySelectorAll("aside .act").forEach((x) => x.classList.remove("act"));
+    history.replaceState(null, "", location.pathname);
+    closePanel();
+  };
+
+  const themeBtn = document.querySelector<HTMLButtonElement>("[data-theme-toggle]")!;
+  const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  const syncThemeBtn = () => {
+    const dark = document.documentElement.dataset.theme === "dark";
+    themeBtn.textContent = dark ? `☀ ${body.dataset.themeLight}` : `☾ ${body.dataset.themeDark}`;
+    themeBtn.setAttribute("aria-pressed", String(dark));
+    if (themeMeta) themeMeta.content = dark ? "#171717" : "#f3efe6";
+  };
+  syncThemeBtn();
+  const setTheme = () => {
+    const dark = document.documentElement.dataset.theme !== "dark";
+    if (dark) document.documentElement.dataset.theme = "dark"; else delete document.documentElement.dataset.theme;
+    try { localStorage.setItem("chat-theme", dark ? "dark" : "light"); } catch {}
+    syncThemeBtn();
+  };
+
+  // ---- Side panel ("artifact"): live agents diagram or career timeline.
+  const artifact = document.querySelector<HTMLElement>("[data-artifact]")!;
+  const artTitle = document.querySelector<HTMLElement>("[data-art-title]")!;
+  const artSvg = artifact.querySelector("svg")!;
+  const artLog = document.querySelector<HTMLOListElement>("[data-art-log]")!;
+  const runLines: [string, string][] = JSON.parse(artLog.dataset.log ?? "[]");
+  let logTimer = 0;
+  const openPanel = (name: string) => {
+    artifact.hidden = false;
+    body.classList.add("art-open");
+    artTitle.textContent = artifact.querySelector<HTMLElement>(`[data-art="${name}"]`)!.dataset.artName!;
+    artifact.querySelectorAll<HTMLElement>("[data-art]").forEach((s) => (s.hidden = s.dataset.art !== name));
+    // Restart the entry animation of the panel and its content.
+    const inner = artifact.querySelector<HTMLElement>(".art-in")!;
+    inner.style.animation = "none"; void inner.offsetWidth; inner.style.animation = "";
+    artifact.querySelectorAll<HTMLElement>(".track i").forEach((i) => { i.style.animation = "none"; void i.offsetWidth; i.style.animation = ""; });
+    clearInterval(logTimer);
+    if (name === "agents") {
+      artSvg.unpauseAnimations();
+      artLog.replaceChildren();
+      let i = 0;
+      const add = () => {
+        const [who, msg] = runLines[i % runLines.length];
+        const li = document.createElement("li");
+        const b = document.createElement("b");
+        b.textContent = who;
+        li.append(b, msg);
+        artLog.append(li);
+        while (artLog.children.length > 4) artLog.firstElementChild!.remove();
+        i++;
+      };
+      add();
+      if (!reduced) logTimer = window.setInterval(() => { if (!document.hidden) add(); }, 1300);
+    } else artSvg.pauseAnimations();
+  };
+  function closePanel() {
+    artifact.hidden = true;
+    body.classList.remove("art-open");
+    clearInterval(logTimer);
+    artSvg.pauseAnimations();
+  }
+  artSvg.pauseAnimations();
+
+  // ---- Answer actions.
+  const flashLabel = (b: HTMLElement, text: string) => {
+    const old = b.textContent;
+    b.textContent = text;
+    setTimeout(() => (b.textContent = old), 1500);
+  };
+  const copy = async (text: string) => { try { await navigator.clipboard.writeText(text); return true; } catch { return false; } };
+  const act = async (b: HTMLElement) => {
+    const acts = b.closest<HTMLElement>("[data-acts]")!;
+    const topic = acts.dataset.topic!;
+    const out = b.closest<HTMLElement>(".body")!;
+    const kind = b.dataset.act;
+    if (kind === "copy") {
+      const clone = out.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll(".acts, .next, .open-panel").forEach((x) => x.remove());
+      if (await copy(clone.innerText.trim())) flashLabel(b, `✓ ${body.dataset.copied}`);
+    } else if (kind === "share") {
+      if (await copy(`${location.origin}${location.pathname}#${topic}`)) flashLabel(b, `✓ ${body.dataset.linkCopied}`);
+    } else if (kind === "regen") {
+      const bot = out.closest<HTMLElement>(".msg")!;
+      bot.classList.remove("done");
+      out.innerHTML = `<p class="think">${body.dataset.thinking} ${topic}.md…</p>`;
+      setTimeout(() => { fill(out, topic); bot.classList.add("done"); }, reduced ? 0 : 700);
+    }
+  };
+
+  // ---- Slash menu.
+  const form = document.querySelector<HTMLFormElement>(".composer")!;
+  const input = form.querySelector("input")!;
+  const slash = document.querySelector<HTMLElement>("[data-slash]")!;
+  const slashBtns = [...slash.querySelectorAll<HTMLElement>("[data-slash-item]")];
+  let sel = 0;
+  const visibleSlash = () => slashBtns.filter((b) => !b.hidden);
+  const renderSlash = () => {
+    const v = input.value;
+    if (!v.startsWith("/")) { slash.hidden = true; return; }
+    const qv = v.slice(1).toLowerCase();
+    slashBtns.forEach((b) => (b.hidden = !b.dataset.slashItem!.startsWith(qv) && !b.textContent!.toLowerCase().includes(qv)));
+    const vis = visibleSlash();
+    slash.hidden = vis.length === 0;
+    sel = Math.min(sel, Math.max(0, vis.length - 1));
+    vis.forEach((b, i) => b.classList.toggle("sel", i === sel));
+  };
+  const runSlash = (id: string) => {
+    input.value = "";
+    slash.hidden = true;
+    if (id === "limpiar" || id === "clear") return reset();
+    if (id === "tema" || id === "theme") return setTheme();
+    const b = document.querySelector<HTMLElement>(`aside [data-ask="${id}"]`);
+    if (b) ask(id, b.dataset.q!);
+  };
+  input.addEventListener("input", () => { sel = 0; renderSlash(); });
+  input.addEventListener("keydown", (e) => {
+    if (slash.hidden) return;
+    const vis = visibleSlash();
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      sel = (sel + (e.key === "ArrowDown" ? 1 : -1) + vis.length) % vis.length;
+      vis.forEach((b, i) => b.classList.toggle("sel", i === sel));
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      runSlash(vis[sel].dataset.slashItem!);
+    } else if (e.key === "Escape") { slash.hidden = true; }
+  });
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text || !slash.hidden) return;
+    ask(KEYS.find(([re]) => re.test(text))?.[1] ?? "nose", text);
+    form.reset();
+  });
+
+  document.addEventListener("click", (e) => {
+    const t = e.target as Element;
+    const b = t.closest<HTMLElement>("[data-ask]");
+    if (b) return ask(b.dataset.ask!, b.dataset.q!);
+    const s = t.closest<HTMLElement>("[data-slash-item]");
+    if (s) return runSlash(s.dataset.slashItem!);
+    const p = t.closest<HTMLElement>("[data-open-panel]");
+    if (p) return openPanel(p.dataset.openPanel!);
+    const a = t.closest<HTMLElement>("[data-act]");
+    if (a) return void act(a);
+    if (t.closest("[data-art-close]")) return closePanel();
+    if (t.closest("[data-theme-toggle]")) return setTheme();
+    if (t.closest("[data-new]")) return reset();
+    if (!t.closest(".dock")) slash.hidden = true;
+  });
+
+  document.addEventListener("keydown", (e) => {
+    const typing = (e.target as Element).closest("input, textarea");
+    if (e.key === "Escape") { if (!artifact.hidden) closePanel(); slash.hidden = true; return; }
+    if (!typing && e.key === "/" && !e.ctrlKey && !e.metaKey) { e.preventDefault(); input.focus(); input.value = "/"; renderSlash(); }
+  });
+
+  // Open with the first answer already on screen; a #topic link adds that answer too.
+  // Read the hash first: every answer rewrites it.
+  const deep = location.hash.slice(1);
+  const first = document.querySelector<HTMLElement>('aside [data-ask="quien"]')!;
+  ask("quien", first.dataset.q!, true);
+  if (deep !== "quien" && topics.has(deep)) {
+    const db = document.querySelector<HTMLElement>(`aside [data-ask="${deep}"]`)!;
+    ask(deep, db.dataset.q!, true);
+    requestAnimationFrame(() => log.lastElementChild?.previousElementSibling?.scrollIntoView({ block: "start" }));
+  } else history.replaceState(null, "", location.pathname);
+</script>

@@ -1,0 +1,472 @@
+---
+// Lab version "Plano": the same content as a technical drawing sheet (Spanish only). Dot grid that reacts to the cursor,
+// headline that decodes itself, diagram that draws itself.
+import "@fontsource-variable/martian-mono";
+import "../styles/proto.css";
+import "@fontsource-variable/unbounded";
+import "@fontsource-variable/hanken-grotesk";
+import { content, links, agentIds, type Lang } from "../content";
+
+interface Props { lang: Lang }
+const t = content[Astro.props.lang];
+const laneY = [44, 122, 200, 278, 356];
+const lanePath = (y: number) => `M96 200 C 250 200, 250 ${y}, 420 ${y}`;
+const ruler = [["inicio", "Inicio"], ...t.nav.slice(0, 2), ["regla", t.rule.tag], ...t.nav.slice(2)];
+---
+<!doctype html>
+<html lang={t.lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Plano · Laboratorio — Francisco Jequier</title>
+    <meta name="description" content={t.description} />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:title" content={t.title} />
+    <meta property="og:description" content={t.description} />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#f3efe6" />
+    <script is:inline>try{const p=JSON.parse(sessionStorage.vt||"null");if(p){const s=document.documentElement.style;s.setProperty("--vx",p[0]+"px");s.setProperty("--vy",p[1]+"px")}if(localStorage.getItem("plano-mode")==="blue")document.documentElement.classList.add("blueprint")}catch{}</script>
+  </head>
+  <body class="p1">
+  <a class="skip" href="#metodo">{t.hero.cta}</a>
+  <canvas class="dots" aria-hidden="true"></canvas>
+
+  <header class="bar">
+    <a class="mark" href="/" aria-label="Francisco Jequier">FJ—01</a>
+    <nav>{t.nav.map(([id, label]) => <a href={`#${id}`}>{label}</a>)}</nav>
+    <span class="tools">
+      <button type="button" class="tool" data-blueprint aria-pressed="false">Plano azul</button>
+      <button type="button" class="tool" data-print>Imprimir</button>
+      <a class="lang" href="/">← Chat</a>
+    </span>
+  </header>
+
+  <nav class="ruler" aria-label="Índice">
+    <b class="ruler-mark" aria-hidden="true"></b>
+    {ruler.map(([id, label]) => <a href={`#${id}`} data-ruler={id}><i></i><span>{label}</span></a>)}
+  </nav>
+
+  <main>
+    <section class="hero" id="inicio">
+      <div>
+        <p class="kick">{t.hero.kicker}</p>
+        <h1 aria-label={t.hero.lines.join(" ")}>
+          {t.hero.lines.map((line, i) => <span class={`ln l${i}`} data-scramble aria-hidden="true">{line}</span>)}
+        </h1>
+        <p class="lead">{t.hero.lead}</p>
+        <a class="cta" href="#metodo">{t.hero.cta}<span aria-hidden="true">↓</span></a>
+      </div>
+
+      <figure class="sheet">
+        <figcaption>FIG. 1 — {t.hero.orchestrator}<em>{t.hero.simNote}</em></figcaption>
+        <p class="fig-desc" data-fig-desc data-default="Pasa el cursor por un agente o haz clic para enviarle una tarea." aria-live="polite">Pasa el cursor por un agente o haz clic para enviarle una tarea.</p>
+        <svg viewBox="0 0 520 400" role="img" aria-label={t.agents.title}>
+          {laneY.map((y, i) => (
+            <g class="lane" style={`--i:${i}`} tabindex="0" role="button" aria-label={`${agentIds[i]}: ${t.agents.list[i][0]}`} data-desc={`${agentIds[i]} — ${t.agents.list[i][0]}: ${t.agents.list[i][1]}`}>
+              <path id={`w${i}`} class="wire" pathLength="1" d={lanePath(y)} />
+              <circle class="pulse" r="5">
+                <animateMotion dur="2.6s" begin={`${1.4 + i * 0.45}s`} repeatCount="indefinite" keyPoints="0;1;1;0" keyTimes="0;0.45;0.55;1" calcMode="linear">
+                  <mpath href={`#w${i}`} />
+                </animateMotion>
+              </circle>
+              <rect class="node" x="420" y={y - 17} width="92" height="34" />
+              <text class="node-t" x="466" y={y + 4} text-anchor="middle">{agentIds[i]}</text>
+            </g>
+          ))}
+          <circle class="ring" cx="62" cy="200" r="46" />
+          <circle class="orb" cx="62" cy="200" r="30" />
+          <text class="orb-t" x="62" y="205" text-anchor="middle">{t.hero.me}</text>
+        </svg>
+        <dl class="block">
+          {t.hero.block.map(([k, v]) => <div><dt>{k}</dt><dd>{v}</dd></div>)}
+        </dl>
+      </figure>
+    </section>
+
+    <section id="metodo" class="sec">
+      <p class="tag">{t.method.tag}</p>
+      <h2 class="rv wipe">{t.method.title}</h2>
+      <ol class="steps">
+        {t.method.steps.map(([verb, text], i) => (
+          <li class="rv wipe" style={`--d:${i * 110}ms`}>
+            <span class="num">0{i + 1}</span>
+            <h3>{verb}</h3>
+            <p>{text}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <section id="agentes" class="sec">
+      <p class="tag">{t.agents.tag}</p>
+      <h2 class="rv wipe">{t.agents.title}</h2>
+      <ul class="rows">
+        {t.agents.list.map(([name, text], i) => (
+          <li class="rv wipe" style={`--d:${i * 80}ms`}>
+            <code>{agentIds[i]}</code><h3>{name}</h3><p>{text}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="sec rule" id="regla">
+      <p class="tag">{t.rule.tag}</p>
+      <blockquote class="rv">{t.rule.a} <mark>{t.rule.hl}</mark>, {t.rule.b}</blockquote>
+    </section>
+
+    <section id="experiencia" class="sec">
+      <p class="tag">{t.exp.tag}</p>
+      <h2 class="rv wipe">{t.exp.title}</h2>
+      <ol class="rows exp">
+        {t.exp.items.map(([dates, role, company, text]) => (
+          <li class="rv wipe"><time>{dates}</time><h3>{role} <span>@ {company}</span></h3><p>{text}</p></li>
+        ))}
+      </ol>
+    </section>
+
+    <section id="lab" class="sec">
+      <p class="tag">{t.lab.tag}</p>
+      <h2 class="rv wipe">{t.lab.title}</h2>
+      <div class="cards">
+        {t.lab.cards.map((c, i) => (
+          <article class="rv wipe" class:list={{ wip: !c.href }} style={`--d:${i * 90}ms`}>
+            <span class="state">{c.state}</span>
+            <h3>{c.name}</h3>
+            <p>{c.text}</p>
+            {c.href && <a href={c.href} rel={c.href.startsWith("http") ? "noopener" : undefined}>{c.link} →</a>}
+          </article>
+        ))}
+      </div>
+      <div class="stack rv">
+        {t.stack.groups.map(([group, items]) => (
+          <div><h3>{group}</h3><ul>{items.map((s) => <li>{s}</li>)}</ul></div>
+        ))}
+      </div>
+    </section>
+
+    <section id="contacto" class="sec contact">
+      <p class="tag">{t.contact.tag}</p>
+      <h2 data-scramble data-on-view>{t.contact.title}</h2>
+      <ul>
+        <li><a href={`mailto:${links.email}`}><span>{t.contact.emailLabel}</span><b>{links.email}</b><i aria-hidden="true">→</i></a></li>
+        <li><a href={links.linkedin} rel="noopener"><span>LinkedIn</span><b>/in/francisco-jequier</b><i aria-hidden="true">→</i></a></li>
+        <li><a href={links.github} rel="noopener"><span>GitHub</span><b>/FcoJequier</b><i aria-hidden="true">→</i></a></li>
+      </ul>
+    </section>
+  </main>
+  <footer><span>Francisco Jequier · {t.footer}</span><span>© {new Date().getFullYear()}</span></footer>
+  </body>
+</html>
+
+<style is:global>
+  .p1 {
+    font: 400 1.02rem/1.6 "Hanken Grotesk Variable", sans-serif;
+    --disp: "Unbounded Variable", sans-serif;
+
+    .dots { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; background: radial-gradient(circle, rgb(20 20 20 / .22) 1.1px, transparent 1.7px) 0 0 / 30px 30px; }
+    main, .bar { position: relative; z-index: 1; }
+
+    .skip { position: absolute; left: -999px; }
+    .skip:focus { left: 12px; top: 12px; z-index: 30; padding: 10px 14px; background: var(--ink); color: var(--paper); }
+    .bar { position: sticky; top: 0; z-index: 4; display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 14px clamp(16px, 4vw, 56px); border-bottom: 1.5px solid var(--ink); font: 500 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .06em; background: var(--paper); }
+    .bar a { text-decoration: none; }
+    .bar nav { display: flex; gap: clamp(12px, 2.4vw, 34px); }
+    .bar nav a:hover { color: var(--red); }
+    .mark { color: var(--red); }
+    .lang { padding: 5px 9px; border: 1.5px solid var(--ink); }
+    .lang:hover { background: var(--ink); color: var(--paper); }
+    .sec, .hero { scroll-margin-top: 44px; }
+    .tools { display: flex; align-items: center; gap: 8px; }
+    .tool { padding: 5px 9px; border: 1.5px solid var(--ink); background: none; color: inherit; font: inherit; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
+    .tool:hover, .tool[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+    .ruler { position: fixed; right: clamp(10px, 1.6vw, 26px); top: 50%; z-index: 3; translate: 0 -50%; display: flex; flex-direction: column; gap: 22px; padding: 6px 0; border-right: 1.5px solid var(--ink); }
+    .ruler a { position: relative; display: flex; align-items: center; justify-content: flex-end; height: 10px; text-decoration: none; font: 500 10px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+    .ruler i { width: 10px; height: 1.5px; background: var(--ink); transition: width .25s; }
+    .ruler span { position: absolute; right: 18px; padding: 2px 6px; background: var(--paper); white-space: nowrap; opacity: 0; translate: 6px 0; transition: opacity .2s, translate .2s; pointer-events: none; }
+    .ruler a:is(:hover, :focus-visible) span { opacity: 1; translate: 0 0; }
+    .ruler a.on i { width: 20px; background: var(--red); }
+    .ruler-mark { position: absolute; right: -5px; top: 0; width: 8px; height: 8px; background: var(--red); transform: translateY(var(--rp, 0px)) rotate(45deg); }
+
+    .fig-desc { min-height: 3.2em; padding: 10px 14px 0; font: 500 11px/1.45 var(--mono); opacity: .7; }
+    .fig-desc.on { opacity: 1; color: var(--ink); }
+    .lane { cursor: pointer; outline: none; }
+    .lane .wire, .lane .node { transition: stroke .2s, stroke-width .2s, opacity .25s; }
+    .sheet.focus-lane .lane:not(:hover, :focus-visible) { opacity: .28; }
+    .lane:is(:hover, :focus-visible) .wire { stroke: var(--red); stroke-width: 3; }
+    .lane:is(:hover, :focus-visible) .node { fill: var(--ink); }
+    .lane:is(:hover, :focus-visible) .node-t { fill: var(--paper); }
+    .lane.sent .node { animation: p1-sent .6s cubic-bezier(.2, 1.8, .4, 1); transform-box: fill-box; transform-origin: center; }
+    .lane.sent .wire { stroke: var(--red); stroke-width: 3; }
+
+    .hero { display: grid; grid-template-columns: 1.15fr .85fr; gap: clamp(24px, 4vw, 64px); align-items: center; min-height: calc(100vh - 46px); padding: clamp(32px, 6vw, 80px) clamp(16px, 4vw, 56px); }
+    .hero > * { min-width: 0; }
+    .kick, .tag { font: 500 12px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+    .kick::before, .tag::before { content: "▚ "; color: var(--red); }
+    h1 { margin: 22px 0 28px; font: 800 clamp(2.3rem, 5.6vw, 5.6rem)/.98 var(--disp); text-transform: uppercase; letter-spacing: -.02em; }
+    /* The decode effect swaps in wider glyphs for a moment; clip them instead of widening the page. */
+    h1 .ln { display: block; white-space: nowrap; overflow-x: clip; }
+    h1 .l1 { color: var(--red); }
+    h1 .l3 { color: var(--paper); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; }
+    .lead { max-width: 46ch; font-size: 1.1rem; }
+    .cta { display: inline-flex; gap: 14px; align-items: center; margin-top: 30px; padding: 16px 22px; background: var(--ink); color: var(--paper); font: 500 13px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; text-decoration: none; box-shadow: 6px 6px 0 var(--red); transition: transform .2s, box-shadow .2s; }
+    .cta:hover { transform: translate(6px, 6px); box-shadow: 0 0 0 var(--red); }
+    .cta span { animation: p1-bob 1.2s ease-in-out infinite; }
+
+    .sheet { border: 1.5px solid var(--ink); background: rgb(243 239 230 / .88); position: relative; }
+    .sheet::before, .sheet::after { content: ""; position: absolute; width: 14px; height: 14px; border: 1.5px solid var(--red); }
+    .sheet::before { left: -8px; top: -8px; border-right: 0; border-bottom: 0; }
+    .sheet::after { right: -8px; bottom: -8px; border-left: 0; border-top: 0; }
+    .sheet figcaption { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1.5px solid var(--ink); font: 500 11px/1.3 var(--mono); text-transform: uppercase; }
+    .sheet em { font-style: normal; opacity: .6; text-align: right; }
+    .sheet svg { display: block; width: 100%; height: auto; padding: 14px; }
+    .wire { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 1; stroke-dashoffset: 1; animation: p1-draw 1s cubic-bezier(.6, 0, .2, 1) forwards; animation-delay: calc(.5s + var(--i) * .14s); }
+    .pulse { fill: var(--red); }
+    .node { fill: var(--paper); stroke: var(--ink); stroke-width: 1.5; animation: p1-pop .4s backwards; animation-delay: calc(1.3s + var(--i) * .14s); }
+    .node-t { font: 500 12px var(--mono); fill: var(--ink); animation: p1-pop .4s backwards; animation-delay: calc(1.4s + var(--i) * .14s); }
+    .ring { fill: none; stroke: var(--blue); stroke-width: 1.5; stroke-dasharray: 4 7; transform-origin: 62px 200px; animation: p1-spin 14s linear infinite; }
+    .orb { fill: var(--ink); }
+    .orb-t { font: 800 15px var(--disp); fill: var(--paper); }
+    .sheet.off .ring, .hero.off .cta span { animation-play-state: paused; }
+    .block { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0; border-top: 1.5px solid var(--ink); font: 500 11px/1.4 var(--mono); text-transform: uppercase; }
+    .block div { padding: 10px 14px; }
+    .block div + div { border-left: 1.5px solid var(--ink); }
+    .block dt { opacity: .55; }
+    .block dd { margin: 0; }
+
+    .sec { padding: clamp(56px, 9vw, 130px) clamp(16px, 4vw, 56px); border-top: 1.5px solid var(--ink); }
+    h2 { margin: 14px 0 44px; font: 800 clamp(1.8rem, 4.4vw, 4rem)/1.02 var(--disp); text-transform: uppercase; letter-spacing: -.02em; max-width: 18ch; }
+    /* Hidden with opacity, not clip-path: a fully clipped element never reports as intersecting. */
+    .wipe { opacity: 0; }
+    .wipe.in { opacity: 1; animation: p1-wipe .9s cubic-bezier(.7, 0, .15, 1) var(--d, 0ms) backwards; }
+
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); border: 1.5px solid var(--ink); background: var(--paper); }
+    .steps li { position: relative; padding: 26px 22px 30px; overflow: hidden; isolation: isolate; transition: color .35s; }
+    .steps li + li { border-left: 1.5px solid var(--ink); }
+    .steps li::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--ink); transform: scaleY(0); transform-origin: bottom; transition: transform .45s cubic-bezier(.7, 0, .15, 1); }
+    .steps li:hover { color: var(--paper); }
+    .steps li:hover::before { transform: scaleY(1); }
+    .num { display: block; font: 800 4.6rem/1 var(--disp); color: var(--paper); -webkit-text-stroke: 2px var(--red); paint-order: stroke fill; transition: color .35s; }
+    .steps li:hover .num { color: var(--red); }
+    h3 { font: 700 1.25rem/1.2 var(--disp); margin: 18px 0 10px; text-transform: uppercase; }
+
+    .rows li { display: grid; grid-template-columns: 110px 1fr 1.4fr; gap: 20px; align-items: baseline; padding: 20px 14px; border-top: 1.5px solid var(--ink); background: var(--paper); transition: background .25s, color .25s; }
+    .rows li > * { transition: translate .25s; }
+    .rows li:hover > * { translate: 20px 0; }
+    .rows li:last-child { border-bottom: 1.5px solid var(--ink); }
+    .rows li:hover { background: var(--blue); color: var(--paper); }
+    .rows code { font: 500 13px var(--mono); color: var(--blue); }
+    .rows li:hover code { color: var(--paper); }
+    .rows h3 { margin: 0; }
+
+    .rule blockquote { font: 600 clamp(1.5rem, 3.6vw, 3.3rem)/1.16 var(--disp); max-width: 24ch; margin-top: 18px; text-transform: uppercase; letter-spacing: -.015em; }
+    .rule mark { color: inherit; background: linear-gradient(var(--red), var(--red)) no-repeat 0 0 / 0% 100%; transition: background-size 1s cubic-bezier(.7, 0, .15, 1) .25s; padding: 0 .12em; }
+    .rule .in mark { background-size: 100% 100%; }
+
+    .exp time { font: 500 12px var(--mono); text-transform: uppercase; }
+    .exp h3 span { color: var(--red); white-space: nowrap; }
+    .rows.exp li:hover { background: var(--ink); }
+
+    .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+    .cards article { display: flex; flex-direction: column; padding: 22px; border: 1.5px solid var(--ink); background: var(--paper); box-shadow: 6px 6px 0 var(--ink); transition: transform .2s, box-shadow .2s; }
+    .cards article:not(.wip):hover { transform: translate(-4px, -4px); box-shadow: 10px 10px 0 var(--red); }
+    .cards .wip { border-style: dashed; box-shadow: none; opacity: .7; }
+    .state { font: 500 11px var(--mono); text-transform: uppercase; color: var(--blue); }
+    .cards h3 { margin-top: 12px; }
+    .cards a { margin-top: auto; padding-top: 16px; font: 500 12px var(--mono); text-transform: uppercase; }
+    .stack { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; margin-top: 56px; opacity: 0; transition: opacity .8s; }
+    .stack.in { opacity: 1; }
+    .stack h3 { margin: 0 0 12px; font-size: .95rem; }
+    .stack ul { display: flex; flex-wrap: wrap; gap: 8px; }
+    .stack li { padding: 7px 12px; border: 1.5px solid var(--ink); background: var(--paper); font: 500 12px var(--mono); }
+
+    .contact { padding-bottom: 90px; }
+    footer { position: relative; z-index: 1; display: flex; justify-content: space-between; padding: 16px clamp(16px, 4vw, 56px); border-top: 1.5px solid var(--ink); background: var(--paper); font: 500 11px var(--mono); text-transform: uppercase; }
+    .contact h2 { font-size: clamp(3rem, 12vw, 11rem); max-width: none; white-space: nowrap; }
+    .contact a { display: grid; grid-template-columns: 120px 1fr auto; gap: 20px; align-items: baseline; padding: 22px 14px; border-top: 1.5px solid var(--ink); text-decoration: none; background: var(--paper); transition: background .25s, color .25s; }
+    .contact li:last-child a { border-bottom: 1.5px solid var(--ink); }
+    .contact a span { font: 500 12px var(--mono); text-transform: uppercase; }
+    .contact a b { font: 700 clamp(1rem, 2.4vw, 1.9rem)/1.2 var(--disp); overflow-wrap: anywhere; }
+    .contact a i { font-style: normal; font-size: 1.6rem; transition: transform .25s; }
+    .contact a:hover { background: var(--red); }
+    .contact a:hover i { transform: translateX(10px) rotate(-45deg); }
+
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; }
+      h1 { font-size: clamp(2rem, 10.5vw, 5rem); }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .steps li:nth-child(3) { border-left: 0; }
+      .steps li:nth-child(n + 3) { border-top: 1.5px solid var(--ink); }
+      .rows li, .contact a { grid-template-columns: 1fr; gap: 6px; }
+      .bar nav, .ruler, .tool[data-print] { display: none; }
+      .cards { grid-template-columns: 1fr 1fr; }
+      .stack { grid-template-columns: 1fr; }
+    }
+  }
+  /* Blueprint mode: the same sheet, printed in white on blue. */
+  html.blueprint .p1 { --paper: #1c37d4; --surface: #1830c0; --ink: #f2f4ff; --red: #ffd23f; --blue: #bfe3ff; }
+  html.blueprint .p1 .dots { background-image: radial-gradient(circle, rgb(242 244 255 / .3) 1.1px, transparent 1.7px); }
+  html.blueprint .p1 .sheet { background: rgb(28 55 212 / .9); }
+  html.blueprint .p1 .rule mark, html.blueprint .p1 .cta, html.blueprint .p1 .contact a:hover { color: #141414; }
+  @media print {
+    .p1 .dots, .p1 .bar, .p1 .ruler, .p1 .cta, .p1 .fig-desc { display: none !important; }
+    .p1 .wipe, .p1 .rv, .p1 .stack { opacity: 1 !important; animation: none !important; }
+    .p1 .hero { min-height: 0; padding-block: 12px; }
+    .p1 .sec { padding: 22px 0; break-inside: avoid; }
+    .p1 .contact h2 { font-size: 3rem; }
+    html.blueprint .p1 { --paper: #fff; --ink: #141414; --red: #ff3b1f; --blue: #1f3bff; }
+  }
+  @keyframes p1-sent { 50% { transform: scale(1.18); } }
+  @keyframes p1-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+  @keyframes p1-draw { to { stroke-dashoffset: 0; } }
+  @keyframes p1-pop { from { opacity: 0; } }
+  @keyframes p1-spin { to { transform: rotate(360deg); } }
+  @keyframes p1-bob { 50% { transform: translateY(5px); } }
+</style>
+
+<script>
+  import { reduced, finePointer } from "../scripts/reveal";
+
+  // Dot grid: dots near the pointer swell, turn red and are pushed away.
+  const c = document.querySelector<HTMLCanvasElement>(".dots")!;
+  const g = c.getContext("2d")!;
+  const dpr = Math.min(devicePixelRatio, 2);
+  const GAP = 30, R = 160;
+  const colors = { paper: "", red: "" };
+  const readColors = () => {
+    const cs = getComputedStyle(document.body);
+    colors.paper = cs.getPropertyValue("--paper").trim();
+    colors.red = cs.getPropertyValue("--red").trim();
+  };
+  readColors();
+  const PAD = R + 30; // dirty box around the pointer: radius + push + dot size
+  let px = -999, py = -999, prev: [number, number] | null = null, queued = false;
+  // Only the box around the pointer is touched: clear the last one, cover the base dots, paint the red ones.
+  const draw = () => {
+    queued = false;
+    if (prev) g.clearRect(prev[0] - PAD, prev[1] - PAD, PAD * 2, PAD * 2);
+    prev = [px, py];
+    const x0 = Math.max(0, Math.floor((px - R) / GAP)), x1 = Math.ceil((px + R) / GAP);
+    const y0 = Math.max(0, Math.floor((py - R) / GAP)), y1 = Math.ceil((py + R) / GAP);
+    const hits: [number, number, number, number, number][] = [];
+    g.fillStyle = colors.paper;
+    for (let j = y0; j <= y1; j++) {
+      for (let i = x0; i <= x1; i++) {
+        const x = GAP / 2 + i * GAP, y = GAP / 2 + j * GAP;
+        const dx = x - px, dy = y - py, d = Math.hypot(dx, dy);
+        if (d >= R || d === 0) continue;
+        g.fillRect(x - 3, y - 3, 6, 6);
+        hits.push([x, y, dx / d, dy / d, 1 - d / R]);
+      }
+    }
+    g.fillStyle = colors.red;
+    g.beginPath();
+    for (const [x, y, ux, uy, k] of hits) {
+      const cx = x + ux * k * 16, cy = y + uy * k * 16, r = 1.2 + k * 4.5;
+      g.moveTo(cx + r, cy);
+      g.arc(cx, cy, r, 0, 7);
+    }
+    g.fill();
+  };
+  const size = () => {
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    prev = null;
+    if (px > -999) draw();
+  };
+  size();
+  addEventListener("resize", size);
+
+  if (finePointer && !reduced) {
+    addEventListener("pointermove", (e) => {
+      px = e.clientX; py = e.clientY;
+      if (!queued) { queued = true; requestAnimationFrame(draw); }
+    }, { passive: true });
+  }
+
+  // Ruler index: a marker that follows the scroll and the section currently on screen.
+  const ruler = document.querySelector<HTMLElement>(".ruler")!;
+  const mark = ruler.querySelector<HTMLElement>(".ruler-mark")!;
+  const ticks = [...ruler.querySelectorAll<HTMLElement>("[data-ruler]")];
+  let rq = false;
+  const onScroll = () => {
+    rq = false;
+    const max = document.documentElement.scrollHeight - innerHeight;
+    mark.style.setProperty("--rp", `${(max > 0 ? scrollY / max : 0) * (ruler.clientHeight - 8)}px`);
+  };
+  addEventListener("scroll", () => { if (!rq) { rq = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  onScroll();
+  const seen = new IntersectionObserver((es) => es.forEach((e) => {
+    if (e.isIntersecting) ticks.forEach((t) => t.classList.toggle("on", t.dataset.ruler === e.target.id));
+  }), { rootMargin: "-45% 0px -50% 0px" });
+  ticks.forEach((t) => { const sec = document.getElementById(t.dataset.ruler!); if (sec) seen.observe(sec); });
+
+  // Diagram: hovering or focusing a lane explains that agent; clicking "sends" it a task.
+  const desc = document.querySelector<HTMLElement>("[data-fig-desc]")!;
+  document.querySelectorAll<SVGGElement>(".sheet .lane").forEach((lane) => {
+    const show = () => { desc.textContent = lane.dataset.desc!; desc.classList.add("on"); sheet.classList.add("focus-lane"); };
+    const hide = () => { desc.textContent = desc.dataset.default!; desc.classList.remove("on"); sheet.classList.remove("focus-lane"); };
+    const send = () => { lane.classList.remove("sent"); void lane.getBoundingClientRect(); lane.classList.add("sent"); setTimeout(() => lane.classList.remove("sent"), 700); show(); };
+    lane.addEventListener("pointerenter", show);
+    lane.addEventListener("pointerleave", hide);
+    lane.addEventListener("focus", show);
+    lane.addEventListener("blur", hide);
+    lane.addEventListener("click", send);
+    lane.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); send(); } });
+  });
+
+  // Blueprint mode (remembered per visitor) and print.
+  const blue = document.querySelector<HTMLButtonElement>("[data-blueprint]")!;
+  const syncBlue = () => blue.setAttribute("aria-pressed", String(document.documentElement.classList.contains("blueprint")));
+  syncBlue();
+  blue.addEventListener("click", () => {
+    const on = document.documentElement.classList.toggle("blueprint");
+    try { localStorage.setItem("plano-mode", on ? "blue" : "paper"); } catch {}
+    syncBlue();
+    readColors();
+    prev = null;
+    g.clearRect(0, 0, c.width, c.height);
+  });
+  document.querySelector("[data-print]")!.addEventListener("click", () => {
+    document.querySelectorAll(".rv").forEach((el) => el.classList.add("in"));
+    print();
+  });
+
+  // Hero off screen: pause the SVG (SMIL) and the looping CSS animations.
+  const hero = document.querySelector<HTMLElement>(".hero")!;
+  const sheet = document.querySelector<HTMLElement>(".sheet")!;
+  const svg = sheet.querySelector("svg")!;
+  new IntersectionObserver(([e]) => {
+    hero.classList.toggle("off", !e.isIntersecting);
+    sheet.classList.toggle("off", !e.isIntersecting);
+    if (e.isIntersecting) svg.unpauseAnimations(); else svg.pauseAnimations();
+  }).observe(hero);
+
+  // Decode effect: random glyphs settle into the final text, left to right.
+  // One timer per element: hovering again restarts it instead of stacking a second one.
+  const GLYPHS = "ABCDEFGHJKLMNPRSTUVXYZ#/_<>*+01";
+  const timers = new WeakMap<HTMLElement, number>();
+  const scramble = (el: HTMLElement, delay = 0) => {
+    const final = el.dataset.final ?? (el.dataset.final = el.textContent ?? "");
+    const start = performance.now() + delay;
+    clearInterval(timers.get(el));
+    const id = window.setInterval(() => {
+      // Time-based so a throttled background tab still finishes on schedule.
+      const done = Math.floor((performance.now() - start) / 100);
+      el.textContent = [...final].map((ch, i) => (i < done || ch === " " ? ch : GLYPHS[(Math.random() * GLYPHS.length) | 0])).join("");
+      if (done >= final.length) clearInterval(id);
+    }, 40);
+    timers.set(el, id);
+  };
+  if (!reduced) {
+    document.querySelectorAll<HTMLElement>("h1 [data-scramble]").forEach((el, i) => {
+      scramble(el, i * 260);
+      el.addEventListener("pointerenter", () => scramble(el));
+    });
+    const io = new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting) { scramble(e.target as HTMLElement); io.unobserve(e.target); }
+    }), { threshold: 0.4 });
+    document.querySelectorAll("[data-on-view]").forEach((el) => io.observe(el));
+  }
+</script>

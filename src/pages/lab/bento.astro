@@ -1,0 +1,398 @@
+---
+// Prototype 3 · Bento: everything on one board. Cards tilt in 3D, flood with ink from the
+// point where the cursor enters, and each one carries its own small animation. Cards with ⤢
+// expand to full screen (view transition), the board can be shuffled, and one card shows
+// the local time in Temuco.
+import Proto from "../../components/Proto.astro";
+import "@fontsource-variable/hanken-grotesk";
+import { content, links, agentIds } from "../../content";
+
+const t = content.es;
+const laneY = [44, 122, 200, 278, 356];
+const lanePath = (y: number) => `M96 200 C 250 200, 250 ${y}, 420 ${y}`;
+const stack = t.stack.groups.flatMap(([, items]) => items);
+---
+<Proto name="Bento" cls="p3">
+  <div class="toolbar">
+    <button type="button" data-shuffle>⇄ Barajar</button>
+    <button type="button" data-unshuffle hidden>↺ Orden original</button>
+  </div>
+  <div class="scrim" data-scrim hidden></div>
+  <main class="board">
+    <article class="card hero" style="--n:0;--flood:var(--ink);--on:var(--paper)">
+      <p class="tag">{t.hero.kicker}</p>
+      <h1>Dirijo <em>agentes.</em><br />Ellos escriben.</h1>
+      <p class="lead">{t.hero.lead}</p>
+    </article>
+
+    <article class="card diagram" style="--n:1;--flood:var(--blue);--on:var(--paper)">
+      <p class="tag"><i class="live"></i>{t.hero.orchestrator} · {t.hero.simNote}</p>
+      <svg viewBox="0 0 520 400" role="img" aria-label={t.agents.title}>
+        {laneY.map((y, i) => (
+          <g>
+            <path id={`b${i}`} class="wire" d={lanePath(y)} />
+            <circle class="pulse" r="5">
+              <animateMotion dur="2.8s" begin={`${i * 0.5}s`} repeatCount="indefinite" keyPoints="0;1;1;0" keyTimes="0;0.45;0.55;1" calcMode="linear">
+                <mpath href={`#b${i}`} />
+              </animateMotion>
+            </circle>
+            <rect class="node" x="420" y={y - 17} width="92" height="34" rx="17" />
+            <text class="node-t" x="466" y={y + 4} text-anchor="middle">{agentIds[i]}</text>
+          </g>
+        ))}
+        <circle class="orb" cx="62" cy="200" r="34" />
+        <text class="orb-t" x="62" y="206" text-anchor="middle">YO</text>
+      </svg>
+      <ol class="log" aria-hidden="true" data-log={JSON.stringify(t.log)}></ol>
+      <div class="more">
+        <p class="tag">Corrida completa</p>
+        <ol class="full-log">{t.log.map(([who, msg]) => <li><b>{who}</b>{msg}</li>)}</ol>
+      </div>
+      <button type="button" class="grow" data-expand aria-label="Ampliar diagrama">⤢</button>
+    </article>
+
+    <article class="card verbs" style="--n:2;--flood:var(--red);--on:var(--ink)">
+      <p class="tag">{t.method.tag}</p>
+      <p class="rot">Yo <span><b>{[...t.method.steps, t.method.steps[0]].map(([v]) => <i>{v.toLowerCase()}</i>)}</b></span></p>
+      <p class="small">{t.method.title} Los agentes implementan y verifican.</p>
+      <ol class="more steps">{t.method.steps.map(([verb, text], i) => <li><span>0{i + 1}</span><b>{verb}</b><p>{text}</p></li>)}</ol>
+      <button type="button" class="grow" data-expand aria-label="Ampliar método">⤢</button>
+    </article>
+
+    <article class="card rule beam" style="--n:3;--flood:var(--ink);--on:var(--paper)">
+      <i class="beam-ring" aria-hidden="true"></i>
+      <p class="tag">{t.rule.tag}</p>
+      <blockquote>{t.rule.a} <mark>{t.rule.hl}</mark>, {t.rule.b}</blockquote>
+    </article>
+
+    <article class="card stack" style="--n:4;--flood:var(--blue);--on:var(--paper)">
+      <p class="tag">{t.stack.tag}</p>
+      <div class="cols" aria-label={stack.join(", ")}>
+        <ul aria-hidden="true">{[0, 1].map(() => stack.slice(0, 6).map((s) => <li>{s}</li>))}</ul>
+        <ul aria-hidden="true">{[0, 1].map(() => stack.slice(6).map((s) => <li>{s}</li>))}</ul>
+      </div>
+      <div class="more groups">{t.stack.groups.map(([group, items]) => <div><h3>{group}</h3><ul>{items.map((x) => <li>{x}</li>)}</ul></div>)}</div>
+      <button type="button" class="grow" data-expand aria-label="Ampliar stack">⤢</button>
+    </article>
+
+    <article class="card agents" style="--n:5">
+      <p class="tag">{t.agents.tag} · {t.agents.title}</p>
+      <ul>
+        {t.agents.list.map(([name, text], i) => (
+          <li tabindex="0"><code>{agentIds[i]}</code><h3>{name}</h3><p>{text}</p></li>
+        ))}
+      </ul>
+      <button type="button" class="grow" data-expand aria-label="Ampliar agentes">⤢</button>
+    </article>
+
+    <article class="card contact" style="--n:6">
+      <p class="tag">{t.contact.tag}</p>
+      <h2>{t.contact.title}</h2>
+      <ul>
+        <li><a class="mag" href={`mailto:${links.email}`}>Correo</a></li>
+        <li><a class="mag" href={links.linkedin} rel="noopener">LinkedIn</a></li>
+        <li><a class="mag" href={links.github} rel="noopener">GitHub</a></li>
+      </ul>
+    </article>
+
+    <article class="card exp" style="--n:7">
+      <p class="tag">{t.exp.tag} · {t.exp.title}</p>
+      <ol>
+        {t.exp.items.map(([dates, role, company, text]) => (
+          <li><time>{dates}</time><h3>{role}</h3><p>{company}</p><p class="more">{text}</p></li>
+        ))}
+      </ol>
+      <button type="button" class="grow" data-expand aria-label="Ampliar experiencia">⤢</button>
+    </article>
+
+    <article class="card clock" style="--n:8;--flood:var(--red);--on:var(--ink)">
+      <p class="tag">Hora local</p>
+      <p class="time" data-clock aria-live="off">--:--</p>
+      <p class="place">{t.footer} · <span data-offset>UTC−3</span></p>
+      <p class="date" data-date></p>
+    </article>
+  </main>
+</Proto>
+
+<style is:global>
+
+  .p3 {
+    font: 400 1rem/1.5 "Hanken Grotesk Variable", sans-serif;
+    background: var(--surface);
+
+    .board { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; padding: 14px 14px 90px; max-width: 1500px; margin: 0 auto; }
+    .card { position: relative; overflow: hidden; isolation: isolate; grid-column: span 4; padding: 26px; border-radius: 26px; background: var(--paper); border: 1.5px solid var(--ink); transition: transform .45s cubic-bezier(.2, .8, .2, 1), color .3s, box-shadow .3s; animation: p3-pop .9s cubic-bezier(.2, 1.4, .3, 1) backwards; animation-delay: calc(var(--n) * 90ms); will-change: transform; }
+    .card.tilt { transition: color .3s, box-shadow .3s; }
+    .card:hover { box-shadow: 0 24px 50px -20px rgb(20 20 20 / .45); z-index: 2; }
+    /* Ink flood from the pointer. */
+    .card[style*="--flood"]::before { content: ""; position: absolute; z-index: -1; left: var(--fx, 50%); top: var(--fy, 50%); width: 300%; aspect-ratio: 1; border-radius: 50%; background: var(--flood); transform: translate(-50%, -50%) scale(0); transition: transform .6s cubic-bezier(.6, 0, .2, 1); pointer-events: none; }
+    .card[style*="--flood"]:hover { color: var(--on); }
+    .card[style*="--flood"]:hover::before { transform: translate(-50%, -50%) scale(1); }
+    /* Spotlight on the cards that do not flood. */
+    .card:not([style*="--flood"])::after { content: ""; position: absolute; z-index: -1; left: -260px; top: -260px; width: 520px; height: 520px; background: radial-gradient(closest-side, rgb(255 59 31 / .28), transparent); transform: translate(var(--sx, 50%), var(--sy, 50%)); opacity: 0; transition: opacity .3s; will-change: transform; pointer-events: none; }
+    .card:not([style*="--flood"]):hover::after { opacity: 1; }
+
+    .tag { font: 500 11px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 18px; }
+
+    .toolbar { position: fixed; top: 14px; right: 14px; z-index: 40; display: flex; gap: 6px; padding: 5px; border-radius: 999px; background: var(--ink); box-shadow: 0 8px 24px -10px rgb(0 0 0 / .4); }
+    .toolbar button { padding: 7px 13px; border: 0; border-radius: 999px; background: none; color: var(--paper); font: 500 12px var(--mono); cursor: pointer; }
+    .toolbar button:hover { background: #333; }
+    .toolbar button[hidden] { display: none; }
+    .grow { position: absolute; top: 14px; right: 14px; z-index: 3; width: 34px; height: 34px; border: 1.5px solid currentColor; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 16px; line-height: 1; cursor: pointer; opacity: 0; scale: .8; transition: opacity .2s, scale .2s; }
+    .card:is(:hover, :focus-within) .grow, .card.expanded .grow { opacity: 1; scale: 1; }
+    .grow:hover { background: var(--ink); color: var(--paper); }
+    .more { display: none; }
+    .scrim { position: fixed; inset: 0; z-index: 45; background: rgb(20 20 20 / .45); }
+    .scrim[hidden] { display: none; }
+    /* Expanded card: fixed over the board, no tilt, its detail visible. */
+    .card.expanded { position: fixed; inset: 5vh max(4vw, calc(50vw - 560px)); z-index: 50; overflow-y: auto; transform: none !important; color: var(--ink); }
+    .card.expanded::before { transform: translate(-50%, -50%) scale(0) !important; }
+    .card.expanded:hover { color: var(--ink); }
+    .card.expanded::after { opacity: 0 !important; }
+    .card.expanded .more { display: block; }
+    .card.expanded .grow { opacity: 1; scale: 1; }
+    .card.expanded .grow::before { content: "✕"; }
+    .card.expanded .grow { font-size: 0; }
+    .card.expanded .grow::before { font-size: 14px; }
+    .full-log li { padding: 4px 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 15%, transparent); font: 500 12px var(--mono); }
+    .full-log b { display: inline-block; min-width: 8ch; color: var(--red); font-weight: 500; }
+    .steps.more { margin-top: 26px; }
+    .card.expanded .steps.more { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+    .steps.more li { padding: 16px; border: 1.5px solid var(--ink); border-radius: 16px; }
+    .steps.more span { font: 500 11px var(--mono); color: var(--red); }
+    .steps.more b { display: block; margin: 6px 0; font-size: 1.3rem; }
+    .card.expanded .groups { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+    .groups h3 { margin-bottom: 10px; font-size: 1rem; }
+    .groups ul { display: flex; flex-wrap: wrap; gap: 6px; }
+    .groups li { padding: 6px 12px; border: 1.5px solid var(--ink); border-radius: 999px; font-weight: 600; font-size: .9rem; }
+    .card.expanded.stack .cols { display: none; }
+    .card.expanded.agents ul { height: auto; flex-direction: column; }
+    .card.expanded.agents li { flex: none; }
+    .card.expanded.agents li p { max-height: none; opacity: 1; margin-top: 6px; }
+    .card.expanded.exp ol { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .card.expanded.exp p.more { display: block; margin-top: 8px; font-size: .95rem; }
+    .card.expanded.diagram svg { max-height: 50vh; }
+
+    .clock { grid-column: span 3; display: flex; flex-direction: column; }
+    .clock .time { margin-top: auto; font: 800 clamp(2.6rem, 4.4vw, 4.4rem)/1 "Hanken Grotesk Variable", sans-serif; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+    .clock .time i { font-style: normal; animation: p3-blink 1s steps(2) infinite; }
+    .clock .place { margin-top: 10px; font-weight: 700; }
+    .clock .date { font: 500 11px var(--mono); text-transform: uppercase; opacity: .7; }
+
+    .hero { grid-column: span 7; min-height: 62vh; display: flex; flex-direction: column; justify-content: space-between; }
+    h1 { font: 800 clamp(2.6rem, 6.6vw, 6.8rem)/.94 "Hanken Grotesk Variable", sans-serif; letter-spacing: -.045em; margin: auto 0 26px; }
+    h1 em { font-style: normal; display: inline-block; padding: 0 .16em .04em; margin-left: -.06em; border-radius: .22em; background: var(--red); color: var(--ink); transform: rotate(-3deg); animation: p3-wob 4s ease-in-out infinite; }
+    .lead { max-width: 46ch; font-size: 1.1rem; }
+
+    .diagram { grid-column: span 5; display: flex; flex-direction: column; }
+    .live { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--red); animation: p3-blink 1.1s steps(2) infinite; }
+    .diagram svg { width: 100%; height: auto; flex: 1; }
+    .wire { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 5 6; animation: p3-dash 1s linear infinite; }
+    .pulse { fill: var(--red); }
+    .node { fill: none; stroke: currentColor; stroke-width: 1.5; }
+    .node-t { font: 500 12px var(--mono); fill: currentColor; }
+    .orb { fill: currentColor; transform-origin: 62px 200px; animation: p3-beat 1.6s ease-in-out infinite; }
+    .orb-t { font: 800 17px "Hanken Grotesk Variable", sans-serif; fill: var(--paper); }
+    .diagram:hover .orb-t { fill: var(--blue); }
+    .log { font: 500 11px/1.9 var(--mono); min-height: 5.7em; }
+    .log li { animation: p3-line .4s both; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .log b { display: inline-block; min-width: 5.5em; color: var(--red); font-weight: 500; }
+    .log .ok b { color: inherit; text-decoration: underline; }
+
+    .rot { font: 800 clamp(2rem, 3.6vw, 3.4rem)/1.15 "Hanken Grotesk Variable", sans-serif; letter-spacing: -.04em; }
+    .rot span { display: inline-block; height: 1.15em; overflow: hidden; vertical-align: bottom; }
+    .rot b { display: block; animation: p3-rot 8s cubic-bezier(.8, 0, .2, 1) infinite; }
+    .rot i { display: block; height: 1.15em; font-style: normal; color: var(--blue); }
+    .verbs:hover .rot i { color: var(--paper); }
+    .small { margin-top: 16px; max-width: 30ch; }
+
+    .beam { border: 0; background: none; }
+    .beam-ring { position: absolute; z-index: -3; left: 50%; top: 50%; width: 220%; aspect-ratio: 1; translate: -50% -50%; background: conic-gradient(var(--ink) 0 55%, var(--red) 70%, var(--blue) 85%, var(--ink)); animation: p3-spin 4s linear infinite; }
+    .beam::after { content: ""; position: absolute; inset: 3px; z-index: -2; border-radius: 23px; background: var(--paper); }
+    .rule blockquote { font: 700 clamp(1.25rem, 2vw, 1.75rem)/1.2 "Hanken Grotesk Variable", sans-serif; letter-spacing: -.02em; }
+    .rule mark { background: var(--red); color: var(--ink); padding: 0 .2em; border-radius: .2em; }
+
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: 210px; overflow: hidden; mask-image: linear-gradient(transparent, #000 20%, #000 80%, transparent); }
+    .cols ul { animation: p3-up 14s linear infinite; }
+    .cols ul + ul { animation-direction: reverse; }
+    .cols li { margin-bottom: 8px; padding: 9px 14px; border: 1.5px solid currentColor; border-radius: 999px; font: 600 .95rem/1.2 "Hanken Grotesk Variable", sans-serif; text-align: center; }
+
+    .agents { grid-column: span 8; }
+    .agents ul { display: flex; gap: 8px; height: 230px; }
+    .agents li { flex: 1; min-width: 0; padding: 16px; border: 1.5px solid var(--ink); border-radius: 18px; background: var(--paper); display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; cursor: default; transition: flex .5s cubic-bezier(.6, 0, .2, 1), background .3s, color .3s; }
+    .agents code { font: 500 11px var(--mono); margin-bottom: auto; }
+    .agents h3 { font: 800 1.05rem/1.1 "Hanken Grotesk Variable", sans-serif; letter-spacing: -.02em; }
+    .agents li p { max-height: 0; opacity: 0; font-size: .92rem; transition: max-height .5s, opacity .3s, margin .3s; }
+    .agents li:is(:hover, :focus-visible) { flex: 3.2; background: var(--ink); color: var(--paper); }
+    .agents li:is(:hover, :focus-visible) code { color: var(--red); }
+    .agents li:is(:hover, :focus-visible) p { max-height: 6em; opacity: 1; margin-top: 8px; }
+
+    .contact h2 { font: 800 clamp(2.6rem, 5vw, 4.6rem)/.95 "Hanken Grotesk Variable", sans-serif; letter-spacing: -.05em; margin-bottom: 22px; }
+    .contact ul { display: flex; flex-wrap: wrap; gap: 8px; }
+    .mag { display: inline-block; padding: 12px 20px; border-radius: 999px; background: var(--ink); color: var(--paper); text-decoration: none; font-weight: 700; transition: transform .25s cubic-bezier(.2, 1.6, .4, 1), background .2s; }
+    .mag:hover { background: var(--blue); }
+
+    .exp { grid-column: span 9; position: relative; }
+    .exp ol { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+    .exp li { padding: 14px 16px 16px; border-top: 3px solid var(--ink); transition: border-color .3s, transform .3s; }
+    .exp li:first-child { border-color: var(--red); }
+    .exp li:hover { border-color: var(--blue); transform: translateY(-6px); }
+    .exp time { font: 500 11px var(--mono); text-transform: uppercase; }
+    .exp h3 { font: 800 1.05rem/1.15 "Hanken Grotesk Variable", sans-serif; margin: 8px 0 2px; letter-spacing: -.02em; }
+
+    @media (max-width: 1000px) {
+      .card, .hero, .diagram, .agents, .exp, .clock { grid-column: span 12; }
+      .toolbar { top: auto; bottom: 70px; right: 50%; translate: 50% 0; }
+      .card.expanded { inset: 10px; }
+      .hero { min-height: 0; }
+      .agents ul { flex-direction: column; height: auto; }
+      .agents li p { max-height: 6em; opacity: 1; margin-top: 8px; }
+      .exp ol { grid-template-columns: 1fr 1fr; }
+    }
+  }
+  /* Same-document transitions (expand, shuffle): cards morph; the page itself does not wipe. */
+  html.vt-local::view-transition-old(root), html.vt-local::view-transition-new(root) { animation: none; }
+  html.vt-local::view-transition-group(*) { animation-duration: .55s; animation-timing-function: cubic-bezier(.2, .9, .2, 1); }
+  @keyframes p3-pop { from { opacity: 0; transform: translateY(60px) rotate(calc((var(--n) - 3.5) * 1.6deg)) scale(.86); } }
+  @keyframes p3-wob { 50% { transform: rotate(2deg) scale(1.03); } }
+  @keyframes p3-blink { 50% { opacity: .2; } }
+  @keyframes p3-dash { to { stroke-dashoffset: -11; } }
+  @keyframes p3-beat { 50% { transform: scale(1.12); } }
+  @keyframes p3-line { from { opacity: 0; transform: translateY(8px); } }
+  @keyframes p3-rot { 0%, 18% { transform: translateY(0); } 25%, 43% { transform: translateY(-1.15em); } 50%, 68% { transform: translateY(-2.3em); } 75%, 93% { transform: translateY(-3.45em); } 100% { transform: translateY(-4.6em); } }
+  @keyframes p3-spin { to { rotate: 360deg; } }
+  @keyframes p3-up { to { transform: translateY(-50%); } }
+</style>
+
+<script>
+  import { reduced, finePointer } from "../../scripts/reveal";
+
+  // 3D tilt + pointer coordinates for flood/spotlight.
+  if (finePointer && !reduced) {
+    document.querySelectorAll<HTMLElement>(".card").forEach((card) => {
+      // Rect measured once on enter (before tilting); moves are batched to one write per frame.
+      let r = card.getBoundingClientRect(), last: PointerEvent | null = null, raf = 0;
+      const origin = (e: PointerEvent) => {
+        card.style.setProperty("--fx", `${e.clientX - r.left}px`);
+        card.style.setProperty("--fy", `${e.clientY - r.top}px`);
+      };
+      const frame = () => {
+        raf = 0;
+        if (!last) return;
+        const lx = last.clientX - r.left, ly = last.clientY - r.top;
+        const x = lx / r.width, y = ly / r.height;
+        card.style.transform = `perspective(1100px) rotateX(${(0.5 - y) * 7}deg) rotateY(${(x - 0.5) * 7}deg) scale(1.012)`;
+        card.style.setProperty("--sx", `${lx}px`);
+        card.style.setProperty("--sy", `${ly}px`);
+      };
+      card.addEventListener("pointerenter", (e) => {
+        r = card.getBoundingClientRect();
+        origin(e);
+        card.classList.add("tilt");
+      });
+      card.addEventListener("pointermove", (e) => { if (card.classList.contains("expanded")) return; last = e; if (!raf) raf = requestAnimationFrame(frame); });
+      card.addEventListener("pointerleave", (e) => {
+        last = null;
+        origin(e);
+        card.classList.remove("tilt");
+        card.style.transform = "";
+      });
+    });
+
+    // Magnetic buttons.
+    document.querySelectorAll<HTMLElement>(".mag").forEach((el) => {
+      el.addEventListener("pointermove", (e) => {
+        const r = el.getBoundingClientRect();
+        el.style.transform = `translate(${(e.clientX - r.left - r.width / 2) * 0.45}px, ${(e.clientY - r.top - r.height / 2) * 0.6}px) scale(1.08)`;
+      });
+      el.addEventListener("pointerleave", () => { el.style.transform = ""; });
+    });
+  }
+
+  const board = document.querySelector<HTMLElement>(".board")!;
+  const cards = [...board.querySelectorAll<HTMLElement>(".card")];
+  // Same-document view transition with a fallback for browsers without it.
+  // Cards get their view-transition-name only while a transition runs: a permanent name made every
+  // card its own captured layer and slowed down ordinary hovering.
+  const morph = (fn: () => void) => {
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+    if (!doc.startViewTransition || reduced) return fn();
+    cards.forEach((c, i) => (c.style.viewTransitionName = `card-${i}`));
+    document.documentElement.classList.add("vt-local");
+    doc.startViewTransition(fn).finished.finally(() => {
+      document.documentElement.classList.remove("vt-local");
+      cards.forEach((c) => (c.style.viewTransitionName = ""));
+    });
+  };
+  const scrim = document.querySelector<HTMLElement>("[data-scrim]")!;
+
+  // Expand / collapse.
+  let open: HTMLElement | null = null;
+  const collapse = () => {
+    if (!open) return;
+    const c = open;
+    morph(() => { c.classList.remove("expanded"); scrim.hidden = true; });
+    open = null;
+    c.querySelector<HTMLElement>("[data-expand]")?.focus({ preventScroll: true });
+  };
+  const expand = (c: HTMLElement) => {
+    if (open === c) return collapse();
+    c.style.transform = "";
+    c.classList.remove("tilt");
+    morph(() => { open?.classList.remove("expanded"); c.classList.add("expanded"); scrim.hidden = false; });
+    open = c;
+  };
+  board.addEventListener("click", (e) => {
+    const b = (e.target as Element).closest<HTMLElement>("[data-expand]");
+    if (b) expand(b.closest<HTMLElement>(".card")!);
+  });
+  scrim.addEventListener("click", collapse);
+  addEventListener("keydown", (e) => { if (e.key === "Escape") collapse(); });
+
+  // Shuffle the board; cards travel to their new place.
+  const original = [...cards];
+  const shuffleBtn = document.querySelector<HTMLElement>("[data-shuffle]")!;
+  const resetBtn = document.querySelector<HTMLElement>("[data-unshuffle]")!;
+  shuffleBtn.addEventListener("click", () => {
+    collapse();
+    // Shuffle whole rows, then the cards inside each row: every order still fills the 12 columns exactly.
+    const mix = <T,>(a: T[]) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const rows = [[0, 1], [2, 3, 4], [5, 6], [7, 8]].map((r) => mix(r.map((i) => original[i])));
+    const order = mix(rows).flat();
+    morph(() => board.append(...order));
+    resetBtn.hidden = false;
+  });
+  resetBtn.addEventListener("click", () => { collapse(); morph(() => board.append(...original)); resetBtn.hidden = true; });
+
+  // Local time in Temuco (Chile uses the America/Santiago zone).
+  const clock = document.querySelector<HTMLElement>("[data-clock]")!;
+  const dateEl = document.querySelector<HTMLElement>("[data-date]")!;
+  const offEl = document.querySelector<HTMLElement>("[data-offset]")!;
+  const tz = "America/Santiago";
+  const tick = () => {
+    const d = new Date();
+    const [h, m] = new Intl.DateTimeFormat("es-CL", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d).split(":");
+    clock.innerHTML = `${h}<i>:</i>${m}`;
+    dateEl.textContent = new Intl.DateTimeFormat("es-CL", { timeZone: tz, weekday: "long", day: "numeric", month: "long" }).format(d);
+    const off = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(d).find((p) => p.type === "timeZoneName")?.value;
+    if (off) offEl.textContent = off.replace("GMT", "UTC").replace("-", "−");
+  };
+  tick();
+  setInterval(() => { if (!document.hidden) tick(); }, 15000);
+
+  // Illustrative run log, line by line, looping.
+  const log = document.querySelector<HTMLOListElement>(".log")!;
+  const lines: [string, string][] = JSON.parse(log.dataset.log ?? "[]");
+  const add = (i: number) => {
+    const li = document.createElement("li");
+    const who = document.createElement("b");
+    who.textContent = lines[i][0];
+    li.append(who, lines[i][1]);
+    if (i === lines.length - 1) li.classList.add("ok");
+    log.append(li);
+    while (log.children.length > 3) log.firstElementChild?.remove();
+  };
+  let i = 0;
+  add(i++); add(i++); add(i++);
+  if (!reduced) setInterval(() => { if (!document.hidden) add(i++ % lines.length); }, 1400);
+</script>

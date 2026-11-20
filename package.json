@@ -1,0 +1,18 @@
+{
+  "name": "fcojequier-portfolio",
+  "type": "module",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/hanken-grotesk": "^5.1.0",
+    "@fontsource-variable/martian-mono": "^5.1.0",
+    "@fontsource-variable/unbounded": "^5.1.0",
+    "astro": "^5.0.0"
+  }
+}
