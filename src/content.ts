@@ -4,6 +4,8 @@ export const links = {
   linkedin: "https://www.linkedin.com/in/francisco-jequier/",
   github: "https://github.com/FcoJequier",
   repo: "https://github.com/FcoJequier/FcoJequier.github.io",
+  // Worker desplegado en tu cuenta personal de Cloudflare:
+  chatApi: "https://fcojequier-portfolio-chat.fcojequier.workers.dev/api/chat",
 };
 
 // Same five roles in both languages; ids are the lane tags shown in the diagram.
@@ -128,6 +130,19 @@ export const content = {
       artifactAgents: "Orquestación de agentes", artifactExp: "Trayectoria", months: "meses", month: "mes",
       slash: [["limpiar", "Empezar un chat nuevo"], ["tema", "Cambiar entre claro y oscuro"]],
       slashHint: "Escribe / para ver los temas",
+      live: "IA activa · Gemini Flash",
+      fineLive: "Botones rápidos predefinidos; preguntas libres respondidas por Gemini sobre mi perfil.",
+      aiThinking: "consultando a Gemini…",
+      aiFallback: "Agente en vivo no disponible; muestro la respuesta local.",
+      aiRateLimit: "Límite temporal alcanzado; muestro la respuesta local.",
+      stop: "Detener",
+      toolLabels: {
+        open_panel_agents: "panel · Orquestación de agentes",
+        open_panel_career: "panel · Trayectoria",
+        suggest_topics: "temas sugeridos",
+        set_theme_dark: "tema · Oscuro",
+        set_theme_light: "tema · Claro",
+      },
     },
     footer: "Temuco, Chile",
     log: [
@@ -257,6 +272,19 @@ export const content = {
       artifactAgents: "Agent orchestration", artifactExp: "Career", months: "months", month: "month",
       slash: [["clear", "Start a new chat"], ["theme", "Switch between light and dark"]],
       slashHint: "Type / for topics",
+      live: "live AI · Gemini Flash",
+      fineLive: "Quick buttons are prewritten; free questions are answered by Gemini using my profile.",
+      aiThinking: "asking Gemini…",
+      aiFallback: "Live agent unavailable; showing local answer.",
+      aiRateLimit: "Temporary rate limit reached; showing local answer.",
+      stop: "Stop",
+      toolLabels: {
+        open_panel_agents: "panel · Agent orchestration",
+        open_panel_career: "panel · Career",
+        suggest_topics: "suggested topics",
+        set_theme_dark: "theme · Dark",
+        set_theme_light: "theme · Light",
+      },
     },
     footer: "Temuco, Chile",
     log: [

@@ -14,6 +14,20 @@ interface Props { lang: Lang }
 const t = content[Astro.props.lang];
 const c = t.chat;
 const site = "https://fcojequier.github.io";
+const chatApi = import.meta.env.PUBLIC_CHAT_API_URL || links.chatApi;
+const chatCfg = {
+  api: chatApi,
+  lang: t.lang,
+  live: c.live,
+  fineLive: c.fineLive,
+  aiThinking: c.aiThinking,
+  aiFallback: c.aiFallback,
+  aiRateLimit: c.aiRateLimit,
+  send: c.send,
+  stop: c.stop,
+  toolLabels: c.toolLabels,
+  topics: c.topics,
+};
 const q = (id: string) => c.topics.find(([k]) => k === id)!;
 // Each answer suggests where to go next, so the whole site can be read without the sidebar.
 const next: Record<string, string[]> = { quien: ["metodo", "experiencia"], metodo: ["agentes"], agentes: ["experiencia"], experiencia: ["lab"], lab: ["contacto"], contacto: [] };
@@ -76,7 +90,7 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
     <main>
       <header>
         <span data-title>{c.newChat}</span>
-        <em>{c.sim}</em>
+        <em data-mode-badge>{c.sim}</em>
         <button type="button" class="theme-toggle" data-theme-toggle aria-label={c.theme} title={c.theme} aria-pressed="true">☀ {c.themeLight}</button>
         <a href={t.otherPath} hreflang={t.otherLabel.toLowerCase()}>{t.otherLabel}</a>
       </header>
@@ -160,7 +174,7 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
           <input name="q" autocomplete="off" placeholder={`${c.placeholder}  ·  ${c.slashHint}`} aria-label={c.ask} />
           <button aria-label={c.send}>↑</button>
         </form>
-        <p class="fine">{c.fine}</p>
+        <p class="fine" data-fine>{c.fine}</p>
       </div>
     </main>
 
@@ -202,6 +216,7 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
         </section>
       </div>
     </aside>
+    <script type="application/json" id="chat-cfg" set:html={JSON.stringify(chatCfg)} />
   </body>
 </html>
 
@@ -238,6 +253,8 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
     main > header { display: flex; align-items: center; gap: 12px; padding: 8px 22px; border-bottom: 1.5px solid var(--ink); font: 500 12px var(--mono); }
     main > header span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     main > header em { font-style: normal; color: var(--red); }
+    main > header em.mode-live { color: var(--blue); }
+    main > header em.mode-live::before { content: "● "; }
     main > header .theme-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1.5px solid var(--ink); border-radius: 999px; background: var(--surface); font: 600 11.5px var(--mono); white-space: nowrap; transition: background .15s, color .15s, transform .15s; }
     main > header .theme-toggle:hover { background: var(--ink); color: var(--paper); transform: translateY(-1px); }
     main > header a { padding: 5px 9px; border: 1.5px solid var(--ink); text-decoration: none; }
@@ -281,7 +298,14 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
     .files span { font: 500 11px var(--mono); }
 
     .next, .chips, .acts { display: flex; flex-wrap: wrap; gap: 8px; }
-    .answers > [hidden], .next[hidden], .acts[hidden], .open-panel[hidden] { display: none; }
+    .answers > [hidden], .next[hidden], .acts[hidden], .acts button[hidden], .open-panel[hidden] { display: none; }
+    .tool-calls { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tool-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border: 1px solid var(--blue); border-radius: 999px; color: var(--blue); font: 500 11px var(--mono); }
+    .ai-md > * + * { margin-top: 10px; }
+    .ai-md ul { list-style: disc; padding-left: 20px; }
+    .ai-md li + li { margin-top: 4px; }
+    .ai-md code { padding: 1px 5px; border-radius: 5px; background: var(--surface); text-transform: none; }
+    .ai-md a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
     .next button, .chips button, .open-panel { flex: none; padding: 7px 13px; border: 1.5px solid var(--ink); border-radius: 999px; background: var(--paper); font-size: .9rem; transition: background .2s, color .2s, transform .2s; }
     .next button:hover, .chips button:hover, .open-panel:hover { background: var(--ink); color: var(--paper); transform: translateY(-2px); }
     .open-panel { display: inline-block; border-color: var(--blue); color: var(--blue); font-weight: 600; }
@@ -306,6 +330,7 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
     .composer input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; color: inherit; }
     .composer button { width: 38px; height: 38px; border-radius: 12px; background: var(--red); color: #141414; text-align: center; font-weight: 700; transition: transform .2s; }
     .composer button:hover { transform: rotate(-12deg) scale(1.1); }
+    .composer button.busy { background: var(--ink); color: var(--paper); }
     .fine { margin-top: 10px; text-align: center; font: 500 10px var(--mono); opacity: .6; }
 
     .artifact { min-width: 0; border-left: 1.5px solid var(--ink); background: var(--surface); overflow: hidden; }
@@ -370,12 +395,47 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
   import { reduced } from "../scripts/reveal";
 
   const body = document.body;
+  const thread = document.querySelector<HTMLElement>(".thread")!;
   const log = document.querySelector<HTMLElement>(".log")!;
   const title = document.querySelector<HTMLElement>("[data-title]")!;
   const historyList = document.querySelector<HTMLElement>("[data-history]")!;
   const historyLabel = document.querySelector<HTMLElement>("[data-history-label]")!;
   const el = (cls: string, tag = "div") => Object.assign(document.createElement(tag), { className: cls });
   const topics = new Set([...document.querySelectorAll<HTMLElement>("aside [data-ask]")].map((b) => b.dataset.ask!));
+
+  type ChatCfg = {
+    api: string;
+    lang: "es" | "en";
+    live: string;
+    fineLive: string;
+    aiThinking: string;
+    aiFallback: string;
+    aiRateLimit: string;
+    send: string;
+    stop: string;
+    toolLabels: Record<string, string>;
+    topics: [string, string, string][];
+  };
+  const cfg: ChatCfg = JSON.parse(document.getElementById("chat-cfg")!.textContent!);
+  const resolveApiUrl = () => {
+    const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    if (isLocal) {
+      const qApi = new URLSearchParams(location.search).get("api")?.trim() ?? "";
+      if (/^(https:\/\/|http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\/)/.test(qApi)) return qApi;
+    }
+    return cfg.api;
+  };
+  const apiUrl = resolveApiUrl();
+  const modeBadge = document.querySelector<HTMLElement>("[data-mode-badge]");
+  const fineEl = document.querySelector<HTMLElement>("[data-fine]");
+  if (apiUrl) {
+    if (modeBadge) { modeBadge.textContent = cfg.live; modeBadge.classList.add("mode-live"); }
+    if (fineEl) fineEl.textContent = cfg.fineLive;
+  }
+
+  type AiTurn = { role: "user" | "assistant"; text: string };
+  const aiHistory: AiTurn[] = [];
+  let activeController: AbortController | null = null;
 
   // Free text is matched to a topic by keyword (Spanish and English); most specific first.
   const KEYS: [RegExp, string][] = [
@@ -454,6 +514,10 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
   };
 
   const reset = () => {
+    activeController?.abort();
+    activeController = null;
+    setBusy(false);
+    aiHistory.length = 0;
     log.replaceChildren();
     historyList.replaceChildren();
     historyLabel.hidden = true;
@@ -473,8 +537,8 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
     if (themeMeta) themeMeta.content = dark ? "#171717" : "#f3efe6";
   };
   syncThemeBtn();
-  const setTheme = () => {
-    const dark = document.documentElement.dataset.theme !== "dark";
+  const setTheme = (forceDark?: boolean) => {
+    const dark = typeof forceDark === "boolean" ? forceDark : document.documentElement.dataset.theme !== "dark";
     if (dark) document.documentElement.dataset.theme = "dark"; else delete document.documentElement.dataset.theme;
     try { localStorage.setItem("chat-theme", dark ? "dark" : "light"); } catch {}
     syncThemeBtn();
@@ -532,26 +596,288 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
   const copy = async (text: string) => { try { await navigator.clipboard.writeText(text); return true; } catch { return false; } };
   const act = async (b: HTMLElement) => {
     const acts = b.closest<HTMLElement>("[data-acts]")!;
-    const topic = acts.dataset.topic!;
+    const topic = acts.dataset.topic;
+    const promptText = acts.dataset.prompt;
     const out = b.closest<HTMLElement>(".body")!;
     const kind = b.dataset.act;
     if (kind === "copy") {
       const clone = out.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll(".acts, .next, .open-panel").forEach((x) => x.remove());
+      clone.querySelectorAll(".acts, .next, .open-panel, .tool-calls").forEach((x) => x.remove());
       if (await copy(clone.innerText.trim())) flashLabel(b, `✓ ${body.dataset.copied}`);
-    } else if (kind === "share") {
+    } else if (kind === "share" && topic) {
       if (await copy(`${location.origin}${location.pathname}#${topic}`)) flashLabel(b, `✓ ${body.dataset.linkCopied}`);
     } else if (kind === "regen") {
       const bot = out.closest<HTMLElement>(".msg")!;
+      if (promptText) {
+        void streamAnswer(out, bot, promptText, false);
+        return;
+      }
+      if (!topic) return;
       bot.classList.remove("done");
       out.innerHTML = `<p class="think">${body.dataset.thinking} ${topic}.md…</p>`;
       setTimeout(() => { fill(out, topic); bot.classList.add("done"); }, reduced ? 0 : 700);
     }
   };
 
-  // ---- Slash menu.
+  // ---- Safe Markdown renderer & live Gemini streaming.
   const form = document.querySelector<HTMLFormElement>(".composer")!;
   const input = form.querySelector("input")!;
+  const submitBtn = form.querySelector<HTMLButtonElement>("button")!;
+  const setBusy = (busy: boolean) => {
+    submitBtn.classList.toggle("busy", busy);
+    submitBtn.textContent = busy ? "■" : "↑";
+    submitBtn.setAttribute("aria-label", busy ? cfg.stop : cfg.send);
+  };
+
+  const renderInline = (parent: HTMLElement, text: string) => {
+    const re = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+    let last = 0;
+    for (const m of text.matchAll(re)) {
+      const idx = m.index ?? 0;
+      if (idx > last) parent.append(document.createTextNode(text.slice(last, idx)));
+      const tok = m[0];
+      if (tok.startsWith("**")) {
+        const strong = document.createElement("strong");
+        strong.textContent = tok.slice(2, -2);
+        parent.append(strong);
+      } else if (tok.startsWith("`")) {
+        const code = document.createElement("code");
+        code.textContent = tok.slice(1, -1);
+        parent.append(code);
+      } else {
+        const lm = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(tok);
+        const href = lm?.[2].trim() ?? "";
+        if (lm && /^(https:\/\/|mailto:|\/)/.test(href)) {
+          const a = document.createElement("a");
+          a.textContent = lm[1];
+          a.href = href;
+          if (href.startsWith("https://")) a.rel = "noopener";
+          parent.append(a);
+        } else {
+          parent.append(document.createTextNode(tok));
+        }
+      }
+      last = idx + tok.length;
+    }
+    if (last < text.length) parent.append(document.createTextNode(text.slice(last)));
+  };
+
+  const renderMarkdown = (text: string) => {
+    const frag = document.createDocumentFragment();
+    for (const rawBlock of text.trim().split(/\n\s*\n/)) {
+      const lines = rawBlock.split(/\r?\n/).map((l) => l.trimEnd()).filter(Boolean);
+      if (!lines.length) continue;
+      if (lines.every((l) => /^[-*]\s+/.test(l))) {
+        const ul = document.createElement("ul");
+        for (const l of lines) {
+          const li = document.createElement("li");
+          renderInline(li, l.replace(/^[-*]\s+/, ""));
+          ul.append(li);
+        }
+        frag.append(ul);
+      } else {
+        const p = document.createElement("p");
+        lines.forEach((l, i) => {
+          if (i > 0) p.append(document.createElement("br"));
+          renderInline(p, l);
+        });
+        frag.append(p);
+      }
+    }
+    return frag;
+  };
+
+  const panelSourceTopic: Record<string, string> = { agents: "agentes", career: "experiencia" };
+
+  const streamAnswer = async (out: HTMLElement, bot: HTMLElement, question: string, recordUserTurn: boolean) => {
+    activeController?.abort();
+    const controller = new AbortController();
+    activeController = controller;
+    setBusy(true);
+    bot.classList.remove("done");
+    out.replaceChildren(Object.assign(el("think", "p"), { textContent: cfg.aiThinking }));
+
+    const toolBar = el("tool-calls");
+    const mdBox = el("ai-md");
+    let hasContent = false;
+    let acc = "";
+    let openedPanel: string | null = null;
+    const suggested: string[] = [];
+
+    const ensureStreamChrome = () => {
+      if (hasContent) return;
+      hasContent = true;
+      out.replaceChildren();
+      if (toolBar.childElementCount > 0) out.append(toolBar);
+      out.append(mdBox);
+    };
+
+    const addPill = (label: string) => {
+      const pill = el("tool-pill", "span");
+      pill.textContent = `⚙ ${label}`;
+      toolBar.append(pill);
+      if (hasContent && !toolBar.isConnected) out.prepend(toolBar);
+    };
+
+    const handleAction = (name: string, args: Record<string, unknown>) => {
+      if (name === "open_panel" && (args.panel === "agents" || args.panel === "career")) {
+        openedPanel = args.panel;
+        openPanel(args.panel);
+        addPill(cfg.toolLabels[`open_panel_${args.panel}`] ?? args.panel);
+      } else if (name === "suggest_topics" && Array.isArray(args.topics)) {
+        let added = false;
+        for (const t of args.topics) {
+          if (typeof t === "string" && topics.has(t) && !suggested.includes(t)) {
+            suggested.push(t);
+            added = true;
+          }
+        }
+        if (added) addPill(cfg.toolLabels.suggest_topics ?? "topics");
+      } else if (name === "set_theme" && (args.theme === "dark" || args.theme === "light")) {
+        setTheme(args.theme === "dark");
+        addPill(cfg.toolLabels[`set_theme_${args.theme}`] ?? args.theme);
+      }
+    };
+
+    const payloadMessages = (recordUserTurn ? [...aiHistory, { role: "user" as const, text: question }] : aiHistory).slice(-10);
+    if (!recordUserTurn && (!payloadMessages.length || payloadMessages[payloadMessages.length - 1].role !== "user")) {
+      payloadMessages.push({ role: "user", text: question });
+    }
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: payloadMessages, lang: cfg.lang }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) throw { status: res.status };
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      const processBlock = (block: string) => {
+        let evt = "message";
+        const dataLines: string[] = [];
+        for (const line of block.split(/\r?\n/)) {
+          if (line.startsWith("event:")) evt = line.slice(6).trim();
+          else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+        }
+        if (!dataLines.length) return;
+        let data: Record<string, unknown>;
+        try { data = JSON.parse(dataLines.join("\n")); } catch { return; }
+
+        if (evt === "action" && typeof data.name === "string" && data.args && typeof data.args === "object") {
+          ensureStreamChrome();
+          handleAction(data.name, data.args as Record<string, unknown>);
+        } else if (evt === "delta" && typeof data.text === "string") {
+          ensureStreamChrome();
+          acc += data.text;
+          mdBox.replaceChildren(renderMarkdown(acc));
+          if (thread.scrollHeight - thread.scrollTop - thread.clientHeight < 140) {
+            thread.scrollTop = thread.scrollHeight;
+          }
+        } else if (evt === "error") {
+          throw { status: 502 };
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split(/\r?\n\r?\n/);
+        buffer = blocks.pop() ?? "";
+        for (const block of blocks) if (block.trim()) processBlock(block);
+      }
+      buffer += decoder.decode();
+      if (buffer.trim()) {
+        for (const block of buffer.split(/\r?\n\r?\n/)) if (block.trim()) processBlock(block);
+      }
+
+      if (!acc.trim() && !toolBar.childElementCount) throw { status: 502 };
+
+      if (recordUserTurn && acc.trim()) {
+        aiHistory.push({ role: "user", text: question }, { role: "assistant", text: acc.trim() });
+        while (aiHistory.length > 10) aiHistory.shift();
+      }
+
+      if (suggested.length) {
+        const nextBox = el("next");
+        for (const id of suggested) {
+          const item = cfg.topics.find(([k]) => k === id);
+          if (!item) continue;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.dataset.ask = id;
+          btn.dataset.q = item[2];
+          btn.textContent = item[2];
+          nextBox.append(btn);
+        }
+        if (nextBox.childElementCount) out.append(nextBox);
+      }
+
+      if (openedPanel) {
+        const srcTopic = panelSourceTopic[openedPanel];
+        const panelBtn = srcTopic ? document.querySelector(`[data-panel-for="${srcTopic}"]`)?.cloneNode(true) as HTMLElement | undefined : undefined;
+        if (panelBtn) { panelBtn.hidden = false; out.append(panelBtn); }
+      }
+
+      const acts = document.querySelector("[data-acts]")!.cloneNode(true) as HTMLElement;
+      acts.hidden = false;
+      acts.dataset.prompt = question;
+      const shareBtn = acts.querySelector<HTMLElement>('[data-act="share"]');
+      if (shareBtn) shareBtn.hidden = true;
+      out.append(acts);
+      bot.classList.add("done");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        if (!hasContent) out.replaceChildren();
+        bot.classList.add("done");
+      } else {
+        const status = (err as { status?: number })?.status;
+        const matchedTopic = KEYS.find(([re]) => re.test(question))?.[1] ?? "nose";
+        fill(out, matchedTopic);
+        const note = el("note", "p");
+        note.textContent = status === 429 ? cfg.aiRateLimit : cfg.aiFallback;
+        out.prepend(note);
+        bot.classList.add("done");
+      }
+    } finally {
+      if (activeController === controller) {
+        activeController = null;
+        setBusy(false);
+      }
+    }
+  };
+
+  const askAI = (question: string) => {
+    body.classList.add("on");
+    if (!log.firstChild) title.textContent = question;
+    document.querySelectorAll("aside .act").forEach((b) => b.classList.remove("act"));
+
+    const user = el("msg user");
+    user.textContent = question;
+    const bot = el("msg bot");
+    const out = el("body");
+    bot.append(Object.assign(document.createElement("i"), { className: "mark" }), out);
+    log.append(user, bot);
+    user.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" });
+
+    historyLabel.hidden = false;
+    const li = el("", "li");
+    const hb = el("", "button") as HTMLButtonElement;
+    hb.type = "button";
+    hb.textContent = question;
+    hb.onclick = () => user.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" });
+    li.append(hb);
+    historyList.append(li);
+
+    void streamAnswer(out, bot, question, true);
+  };
+
+  // ---- Slash menu.
   const slash = document.querySelector<HTMLElement>("[data-slash]")!;
   const slashBtns = [...slash.querySelectorAll<HTMLElement>("[data-slash-item]")];
   let sel = 0;
@@ -590,9 +916,14 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
+    if (activeController) {
+      activeController.abort();
+      return;
+    }
     const text = input.value.trim();
     if (!text || !slash.hidden) return;
-    ask(KEYS.find(([re]) => re.test(text))?.[1] ?? "nose", text);
+    if (apiUrl) askAI(text);
+    else ask(KEYS.find(([re]) => re.test(text))?.[1] ?? "nose", text);
     form.reset();
   });
 
