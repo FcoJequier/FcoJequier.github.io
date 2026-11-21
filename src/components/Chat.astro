@@ -15,14 +15,35 @@ const t = content[Astro.props.lang];
 const c = t.chat;
 const site = "https://fcojequier.github.io";
 const chatApi = import.meta.env.PUBLIC_CHAT_API_URL || links.chatApi;
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || links.turnstileSiteKey;
+let apiOrigin = "";
+try {
+  if (chatApi) apiOrigin = new URL(chatApi).origin;
+} catch {
+  apiOrigin = "";
+}
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""} https://challenges.cloudflare.com`,
+  "frame-src https://challenges.cloudflare.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
 const chatCfg = {
   api: chatApi,
+  turnstileSiteKey,
   lang: t.lang,
   live: c.live,
   fineLive: c.fineLive,
   aiThinking: c.aiThinking,
   aiFallback: c.aiFallback,
   aiRateLimit: c.aiRateLimit,
+  aiBlocked: c.aiBlocked,
   send: c.send,
   stop: c.stop,
   toolLabels: c.toolLabels,
@@ -67,6 +88,8 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
     <meta property="og:type" content="website" />
     <meta property="og:url" content={site + t.path} />
     <meta name="theme-color" content="#171717" />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Content-Security-Policy" content={csp} />
     <script is:inline>try{const p=JSON.parse(sessionStorage.vt||"null");if(p){const s=document.documentElement.style;s.setProperty("--vx",p[0]+"px");s.setProperty("--vy",p[1]+"px")}if(localStorage.getItem("chat-theme")!=="light")document.documentElement.dataset.theme="dark"}catch{}</script>
     <noscript><style>.pc .answers > [hidden] { display: grid !important; } .pc .hello, .pc .dock { display: none !important; }</style></noscript>
   </head>
@@ -171,7 +194,7 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
           {slashItems.map(([id, label]) => <button type="button" role="option" data-slash-item={id}><code>/{id}</code><span>{label}</span></button>)}
         </div>
         <form class="composer">
-          <input name="q" autocomplete="off" placeholder={`${c.placeholder}  ·  ${c.slashHint}`} aria-label={c.ask} />
+          <input name="q" maxlength="600" autocomplete="off" placeholder={`${c.placeholder}  ·  ${c.slashHint}`} aria-label={c.ask} />
           <button aria-label={c.send}>↑</button>
         </form>
         <p class="fine" data-fine>{c.fine}</p>
@@ -216,6 +239,7 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
         </section>
       </div>
     </aside>
+    <div id="ts-box" hidden aria-hidden="true"></div>
     <script type="application/json" id="chat-cfg" set:html={JSON.stringify(chatCfg)} />
   </body>
 </html>
@@ -405,12 +429,14 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
 
   type ChatCfg = {
     api: string;
+    turnstileSiteKey: string;
     lang: "es" | "en";
     live: string;
     fineLive: string;
     aiThinking: string;
     aiFallback: string;
     aiRateLimit: string;
+    aiBlocked: string;
     send: string;
     stop: string;
     toolLabels: Record<string, string>;
@@ -689,6 +715,75 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
 
   const panelSourceTopic: Record<string, string> = { agents: "agentes", career: "experiencia" };
 
+  type TurnstileApi = {
+    render: (el: HTMLElement, opts: Record<string, unknown>) => string;
+    execute: (widgetId: string) => void;
+    reset: (widgetId: string) => void;
+  };
+  let tsScriptPromise: Promise<TurnstileApi> | null = null;
+  let tsWidgetId: string | null = null;
+  let tsResolve: ((token: string) => void) | null = null;
+  let tsReject: ((err: Error) => void) | null = null;
+
+  const loadTurnstile = () => {
+    if (tsScriptPromise) return tsScriptPromise;
+    tsScriptPromise = new Promise<TurnstileApi>((resolve, reject) => {
+      const api = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+      if (api) return resolve(api);
+      const s = document.createElement("script");
+      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      s.async = true;
+      s.defer = true;
+      s.onload = () => {
+        const loaded = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+        if (loaded) resolve(loaded);
+        else reject(new Error("Turnstile unavailable"));
+      };
+      s.onerror = () => reject(new Error("Turnstile failed to load"));
+      document.head.append(s);
+    });
+    return tsScriptPromise;
+  };
+
+  const getTurnstileToken = async (): Promise<string | undefined> => {
+    if (!cfg.turnstileSiteKey) return undefined;
+    const api = await loadTurnstile();
+    const box = document.getElementById("ts-box")!;
+    if (!tsWidgetId) {
+      tsWidgetId = api.render(box, {
+        sitekey: cfg.turnstileSiteKey,
+        execution: "execute",
+        size: "invisible",
+        callback: (token: string) => {
+          tsResolve?.(token);
+          tsResolve = null;
+          tsReject = null;
+        },
+        "error-callback": () => {
+          tsReject?.(new Error("Turnstile error"));
+          tsResolve = null;
+          tsReject = null;
+        },
+        "expired-callback": () => {
+          if (tsWidgetId) api.reset(tsWidgetId);
+        },
+      });
+    } else {
+      api.reset(tsWidgetId);
+    }
+
+    return new Promise<string>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        tsResolve = null;
+        tsReject = null;
+        reject(new Error("Turnstile timeout"));
+      }, 10000);
+      tsResolve = (token) => { clearTimeout(timer); resolve(token); };
+      tsReject = (err) => { clearTimeout(timer); reject(err); };
+      api.execute(tsWidgetId!);
+    });
+  };
+
   const streamAnswer = async (out: HTMLElement, bot: HTMLElement, question: string, recordUserTurn: boolean) => {
     activeController?.abort();
     const controller = new AbortController();
@@ -739,16 +834,29 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
       }
     };
 
-    const payloadMessages = (recordUserTurn ? [...aiHistory, { role: "user" as const, text: question }] : aiHistory).slice(-10);
+    const payloadMessages = (recordUserTurn ? [...aiHistory, { role: "user" as const, text: question }] : aiHistory).slice(-8);
     if (!recordUserTurn && (!payloadMessages.length || payloadMessages[payloadMessages.length - 1].role !== "user")) {
       payloadMessages.push({ role: "user", text: question });
     }
 
     try {
+      let turnstileToken: string | undefined;
+      if (cfg.turnstileSiteKey) {
+        try {
+          turnstileToken = await getTurnstileToken();
+        } catch {
+          throw { status: 403 };
+        }
+      }
+
       const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: payloadMessages, lang: cfg.lang }),
+        body: JSON.stringify({
+          messages: payloadMessages,
+          lang: cfg.lang,
+          ...(turnstileToken ? { turnstileToken } : {}),
+        }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) throw { status: res.status };
@@ -800,7 +908,7 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
 
       if (recordUserTurn && acc.trim()) {
         aiHistory.push({ role: "user", text: question }, { role: "assistant", text: acc.trim() });
-        while (aiHistory.length > 10) aiHistory.shift();
+        while (aiHistory.length > 8) aiHistory.shift();
       }
 
       if (suggested.length) {
@@ -840,7 +948,7 @@ const slashItems = [...c.topics.map(([id, , question]) => [id, question]), ...c.
         const matchedTopic = KEYS.find(([re]) => re.test(question))?.[1] ?? "nose";
         fill(out, matchedTopic);
         const note = el("note", "p");
-        note.textContent = status === 429 ? cfg.aiRateLimit : cfg.aiFallback;
+        note.textContent = status === 429 ? cfg.aiRateLimit : status === 403 ? cfg.aiBlocked : cfg.aiFallback;
         out.prepend(note);
         bot.classList.add("done");
       }

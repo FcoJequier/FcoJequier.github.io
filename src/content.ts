@@ -6,6 +6,8 @@ export const links = {
   repo: "https://github.com/FcoJequier/FcoJequier.github.io",
   // Worker desplegado en tu cuenta personal de Cloudflare:
   chatApi: "https://fcojequier-portfolio-chat.fcojequier.workers.dev/api/chat",
+  // Site Key público de Cloudflare Turnstile (modo invisible):
+  turnstileSiteKey: "0x4AAAAAAGMIHIFyi6p8SCpL",
 };
 
 // Same five roles in both languages; ids are the lane tags shown in the diagram.
@@ -135,6 +137,7 @@ export const content = {
       aiThinking: "consultando a Gemini…",
       aiFallback: "Agente en vivo no disponible; muestro la respuesta local.",
       aiRateLimit: "Límite temporal alcanzado; muestro la respuesta local.",
+      aiBlocked: "Verificación de seguridad no superada; muestro la respuesta local.",
       stop: "Detener",
       toolLabels: {
         open_panel_agents: "panel · Orquestación de agentes",
@@ -277,6 +280,7 @@ export const content = {
       aiThinking: "asking Gemini…",
       aiFallback: "Live agent unavailable; showing local answer.",
       aiRateLimit: "Temporary rate limit reached; showing local answer.",
+      aiBlocked: "Security check did not pass; showing local answer.",
       stop: "Stop",
       toolLabels: {
         open_panel_agents: "panel · Agent orchestration",
